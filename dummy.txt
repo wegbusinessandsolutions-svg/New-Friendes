@@ -1,0 +1,121 @@
+export const MOCK_USERS: NearbyUser[] = [
+  {
+    userId: 'mock1',
+    distance: '150m',
+    distanceValue: 150,
+    profile: { nome: 'Ana', apelido: 'Aninha', idade: 25, sexo: 'feminino', bio: 'Adoro viajar e conhecer pessoas novas!', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80' }
+  },
+  {
+    userId: 'mock2',
+    distance: '300m',
+    distanceValue: 300,
+    profile: { nome: 'Carlos', apelido: 'Carlinhos', idade: 28, sexo: 'masculino', bio: 'Bora tomar uma?', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80' }
+  },
+  {
+    userId: 'mock3',
+    distance: '450m',
+    distanceValue: 450,
+    profile: { nome: 'Beatriz', apelido: 'Bia', idade: 31, sexo: 'feminino', bio: 'Sempre em busca de boas risadas', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80' }
+  },
+  {
+    userId: 'mock4',
+    distance: '750m',
+    distanceValue: 750,
+    profile: { nome: 'Marcos', apelido: 'Marcão', idade: 35, sexo: 'masculino', bio: 'Fã de esportes e natureza', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80' }
+  },
+  {
+    userId: 'mock5',
+    distance: '1,2km',
+    distanceValue: 1200,
+    profile: { nome: 'Camila', apelido: 'Cami', idade: 38, sexo: 'feminino', bio: 'Fotografia e vinhos', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80' }
+  },
+  {
+    userId: 'mock6',
+    distance: '1,8km',
+    distanceValue: 1800,
+    profile: { nome: 'Roberto', apelido: 'Beto', idade: 41, sexo: 'masculino', bio: 'Vida leve', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&q=80' }
+  },
+  {
+    userId: 'mock7',
+    distance: '2,3km',
+    distanceValue: 2300,
+    profile: { nome: 'Fernanda', apelido: 'Fê', idade: 45, sexo: 'feminino', bio: 'Cinema e pipoca', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80' }
+  },
+  {
+    userId: 'mock8',
+    distance: '2,9km',
+    distanceValue: 2900,
+    profile: { nome: 'Sérgio', apelido: 'Serginho', idade: 50, sexo: 'masculino', bio: 'Caminhadas pelo parque', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80' }
+  },
+  {
+    userId: 'mock9',
+    distance: '3,5km',
+    distanceValue: 3500,
+    profile: { nome: 'Mônica', apelido: 'Môni', idade: 55, sexo: 'feminino', bio: 'Amo animais e a natureza', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=400&q=80' }
+  },
+  {
+    userId: 'mock10',
+    distance: '4,1km',
+    distanceValue: 4100,
+    profile: { nome: 'Bruno', apelido: 'Bruninho', idade: 23, sexo: 'masculino', bio: 'Jogador de basquete nas horas vagas', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&q=80' }
+  },
+  {
+    userId: 'mock11',
+    distance: '4,8km',
+    distanceValue: 4800,
+    profile: { nome: 'Juliana', apelido: 'Ju', idade: 27, sexo: 'feminino', bio: 'Apaixonada por culinária e café', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80' }
+  },
+  {
+    userId: 'mock12',
+    distance: '5,5km',
+    distanceValue: 5500,
+    profile: { nome: 'Daniel', apelido: 'Dani', idade: 30, sexo: 'masculino', bio: 'Desenvolvedor, músico e viciado em podcast', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=400&q=80' }
+  },
+  {
+    userId: 'mock13',
+    distance: '6,2km',
+    distanceValue: 6200,
+    profile: { nome: 'Amanda', apelido: 'Amy', idade: 29, sexo: 'feminino', bio: 'Pratico yoga e amo o pôr do sol', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&q=80' }
+  },
+  {
+    userId: 'mock14',
+    distance: '7,1km',
+    distanceValue: 7100,
+    profile: { nome: 'Lucas', apelido: 'Luquinhas', idade: 32, sexo: 'masculino', bio: 'Gosto de acampar e tocar violão', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&q=80' }
+  },
+  {
+    userId: 'mock15',
+    distance: '8,0km',
+    distanceValue: 8000,
+    profile: { nome: 'Patrícia', apelido: 'Patty', idade: 34, sexo: 'feminino', bio: 'Arquiteta, adoro museus e exposições', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&q=80' }
+  },
+  {
+    userId: 'mock16',
+    distance: '9,2km',
+    distanceValue: 9200,
+    profile: { nome: 'Thiago', apelido: 'Thi', idade: 26, sexo: 'masculino', bio: 'Gosto de correr e ler bons livros', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=400&q=80' }
+  },
+  {
+    userId: 'mock17',
+    distance: '10,5km',
+    distanceValue: 10500,
+    profile: { nome: 'Gabriela', apelido: 'Gabi', idade: 33, sexo: 'feminino', bio: 'Apaixonada por trilhas e praia', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=400&q=80' }
+  },
+  {
+    userId: 'mock18',
+    distance: '12,5km',
+    distanceValue: 12500,
+    profile: { nome: 'Felipe', apelido: 'Lipe', idade: 24, sexo: 'masculino', bio: 'Amante de tecnologia e novos gadgets', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1513956589380-bad6acb9b9d4?w=400&q=80' }
+  },
+  {
+    userId: 'mock19',
+    distance: '15,0km',
+    distanceValue: 15000,
+    profile: { nome: 'Letícia', apelido: 'Lelê', idade: 22, sexo: 'feminino', bio: 'Estudante de design, amo ilustrações', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1519699047748-de8e457a634e?w=400&q=80' }
+  },
+  {
+    userId: 'mock20',
+    distance: '18,5km',
+    distanceValue: 18500,
+    profile: { nome: 'Rodrigo', apelido: 'Rod', idade: 36, sexo: 'masculino', bio: 'Cozinheiro amador e fã de rock clássico', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1489980508314-941910ded1f4?w=400&q=80' }
+  }

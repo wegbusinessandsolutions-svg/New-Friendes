@@ -1,0 +1,112 @@
+const fs = require('fs');
+let code = fs.readFileSync('src/pages/ProfileDetails.tsx', 'utf8');
+
+const regex = /const handleFileUpload = async \(e: React\.ChangeEvent<HTMLInputElement>, isPrincipal: boolean, index\?: number\) => \{[\s\S]*?setEditModalOpen\(false\);\n    \} catch \(err\) \{/m;
+
+const replaceStr = `const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isPrincipal: boolean, index?: number) => {
+    if (!e.target.files || !e.target.files[0] || !auth.currentUser) return;
+    const file = e.target.files[0];
+    
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      alert("Por favor, selecione uma imagem válida.");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+
+    if (isPrincipal) {
+      setPendingFotoPrincipal(file);
+      setEditFotoPrincipalUrl(previewUrl);
+    } else if (index !== undefined) {
+      setPendingFotosAdicionais(prev => ({ ...prev, [index]: file }));
+      const newFotos = [...editFotosAdicionais];
+      newFotos[index] = previewUrl;
+      setEditFotosAdicionais(newFotos);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth.currentUser || isSavingProfile) return;
+    
+    setIsSavingProfile(true);
+
+    try {
+      let finalFotoPrincipalUrl = editFotoPrincipalUrl;
+      let finalFotosAdicionais = [...editFotosAdicionais];
+
+      if (pendingFotoPrincipal) {
+        setIsUploadingImage(true);
+        const fileRef = ref(storage, \`profiles/\${auth.currentUser.uid}/\${Date.now()}_\${pendingFotoPrincipal.name}\`);
+        await uploadBytes(fileRef, pendingFotoPrincipal);
+        finalFotoPrincipalUrl = await getDownloadURL(fileRef);
+      }
+
+      if (Object.keys(pendingFotosAdicionais).length > 0) {
+        setIsUploadingImage(true);
+        for (const [idxStr, file] of Object.entries(pendingFotosAdicionais)) {
+          const idx = parseInt(idxStr);
+          const fileRef = ref(storage, \`profiles/\${auth.currentUser.uid}/\${Date.now()}_\${file.name}\`);
+          await uploadBytes(fileRef, file);
+          finalFotosAdicionais[idx] = await getDownloadURL(fileRef);
+        }
+      }
+
+      setIsUploadingImage(false);
+
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        'profile.nome': editNome,
+        'profile.apelido': editApelido,
+        'profile.bio': editBio,
+        'profile.telefone': editTelefone,
+        'profile.sexo': editSexo,
+        'profile.cor': editCor,
+        'profile.estadoCivil': editEstadoCivil,
+        'profile.objetivo': editObjetivo,
+        'profile.estadoNascimento': editEstadoNascimento,
+        'profile.cidadeNascimento': editCidadeNascimento,
+        'profile.fotoPrincipalUrl': finalFotoPrincipalUrl,
+        'profile.fotosAdicionais': finalFotosAdicionais,
+        'profile.statusBolinha': editStatusBolinha,
+        'profile.altura': editAltura,
+        'profile.signo': editSigno,
+        'profile.profissao': editProfissao,
+        'profile.hobbies': editHobbies,
+        'profile.prompts': editPrompts,
+        'profile.lifestyle': editLifestyle
+      });
+
+      setProfile((prev: any) => ({
+        ...prev,
+        nome: editNome,
+        apelido: editApelido,
+        bio: editBio,
+        telefone: editTelefone,
+        sexo: editSexo,
+        cor: editCor,
+        estadoCivil: editEstadoCivil,
+        objetivo: editObjetivo,
+        estadoNascimento: editEstadoNascimento,
+        cidadeNascimento: editCidadeNascimento,
+        fotoPrincipalUrl: finalFotoPrincipalUrl,
+        fotosAdicionais: finalFotosAdicionais,
+        fotos: finalFotosAdicionais.length > 0 ? [finalFotoPrincipalUrl, ...finalFotosAdicionais] : [finalFotoPrincipalUrl],
+        statusBolinha: editStatusBolinha,
+        altura: editAltura,
+        signo: editSigno,
+        profissao: editProfissao,
+        hobbies: editHobbies,
+        prompts: editPrompts,
+        lifestyle: editLifestyle
+      }));
+
+      setPendingFotoPrincipal(null);
+      setPendingFotosAdicionais({});
+      setEditModalOpen(false);
+    } catch (err) {`;
+
+code = code.replace(regex, replaceStr);
+fs.writeFileSync('src/pages/ProfileDetails.tsx', code);
+console.log('done2');

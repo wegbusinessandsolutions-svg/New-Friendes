@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Fredoka:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-friendly: "Fredoka", "Nunito", sans-serif;
+  --animate-scan: scan 2s ease-in-out infinite;
+
+  @keyframes scan {
+    0%, 100% { top: 0%; }
+    50% { top: 100%; }
+  }
+}
+
+body {
+  @apply bg-slate-100 text-slate-800 transition-colors duration-200;
+}
+
+html.dark body {
+  @apply bg-slate-900 text-slate-100;
+}
+
+/* Global Dark Mode Overrides for text readability and consistent colors */
+html.dark, .dark {
+  /* Elevate text legibility */
+  .text-slate-900, .text-neutral-900, .text-gray-900 { color: var(--color-slate-100) !important; }
+  .text-slate-850 { color: var(--color-slate-200) !important; }
+  .text-slate-800, .text-neutral-800, .text-gray-800 { color: var(--color-slate-200) !important; }
+  .text-slate-750 { color: var(--color-slate-300) !important; }
+  .text-slate-700, .text-neutral-700, .text-gray-700 { color: var(--color-slate-300) !important; }
+  .text-slate-650 { color: var(--color-slate-300) !important; }
+  .text-slate-600, .text-neutral-600, .text-gray-600 { color: var(--color-slate-400) !important; }
+  .text-slate-550 { color: var(--color-slate-400) !important; }
+  .text-slate-500, .text-neutral-500, .text-gray-500 { color: var(--color-slate-400) !important; }
+  .text-slate-450 { color: var(--color-slate-400) !important; }
+  .text-slate-400, .text-neutral-400, .text-gray-400 { color: var(--color-slate-500) !important; }
+
+  /* Redefine native inputs, textareas, and selects for high-contrast dark aesthetics */
+  input, select, textarea {
+    background-color: var(--color-slate-800) !important;
+    border-color: var(--color-slate-700) !important;
+    color: var(--color-slate-100) !important;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--color-indigo-500) !important;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--color-slate-500) !important;
+  }
+
+  /* Support container background transitions on theme switch */
+  .bg-white {
+    background-color: var(--color-slate-900) !important;
+  }
+  .bg-slate-50 {
+    background-color: var(--color-slate-800) !important;
+  }
+  .bg-slate-100 {
+    background-color: var(--color-slate-850) !important;
+  }
+  .bg-slate-150 {
+    background-color: var(--color-slate-800) !important;
+  }
+  .bg-slate-200 {
+    background-color: var(--color-slate-700) !important;
+  }
+
+  /* Modern borders and dividers */
+  .border-slate-100,
+  .border-slate-150,
+  .border-slate-200,
+  .border-slate-300 {
+    border-color: var(--color-slate-800) !important;
+  }
+
+  /* Text elements specifically in active controls */
+  .text-slate-850 {
+    color: var(--color-slate-100) !important;
+  }
+}

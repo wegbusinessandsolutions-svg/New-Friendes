@@ -1,0 +1,12 @@
+{
+  "name": "Perto",
+  "description": "App de relacionamentos por geolocalização que conecta pessoas fisicamente próximas em tempo real.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

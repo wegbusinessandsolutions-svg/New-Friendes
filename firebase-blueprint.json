@@ -1,0 +1,233 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public profile and status",
+      "type": "object",
+      "properties": {
+        "profile": { "type": "object" },
+        "status": { "type": "object" },
+        "settings": { "type": "object" },
+        "friendCategories": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "UserLocation": {
+      "title": "UserLocation",
+      "description": "Private location data",
+      "type": "object",
+      "properties": {
+        "geohash": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "atualizadoEm": { "type": "number" },
+        "visivel": { "type": "boolean" }
+      }
+    },
+    "Interaction": {
+      "title": "Interaction",
+      "description": "Interaction between users (flirt, friend invite)",
+      "type": "object",
+      "properties": {
+        "deUserId": { "type": "string" },
+        "paraUserId": { "type": "string" },
+        "tipo": { "type": "string" },
+        "status": { "type": "string" },
+        "criadoEm": { "type": "number" },
+        "respondidoEm": { "type": "number" }
+      }
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Accepted friendship between users",
+      "type": "object",
+      "properties": {
+        "participantes": { "type": "array", "items": { "type": "string" } },
+        "criadoEm": { "type": "number" },
+        "chatId": { "type": "string" }
+      }
+    },
+    "Chat": {
+      "title": "Chat",
+      "description": "Chat session",
+      "type": "object",
+      "properties": {
+        "participantes": { "type": "array", "items": { "type": "string" } },
+        "ultimaMensagem": { "type": "string" },
+        "ultimaMensagemEm": { "type": "number" }
+      }
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Individual message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "type": { "type": "string" },
+        "text": { "type": "string" },
+        "mediaData": { "type": "string" },
+        "sentAt": { "type": "string" },
+        "seenAt": { "type": "string" },
+        "openedAt": { "type": "string" },
+        "status": { "type": "string" },
+        "deletedFor": { "type": "array", "items": { "type": "string" } },
+        "deletedForAll": { "type": "boolean" }
+      }
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User report",
+      "type": "object",
+      "properties": {
+        "deUserId": { "type": "string" },
+        "contraUserId": { "type": "string" },
+        "motivo": { "type": "string" },
+        "descricao": { "type": "string" },
+        "criadoEm": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "Block": {
+      "title": "Block",
+      "description": "User block",
+      "type": "object",
+      "properties": {
+        "blockedBy": { "type": "string" },
+        "blockedUser": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "Friend request",
+      "type": "object",
+      "properties": {
+        "fromUserId": { "type": "string" },
+        "toUserId": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      }
+    },
+    "Connection": {
+      "title": "Connection",
+      "description": "User connection",
+      "type": "object",
+      "properties": {
+        "users": { "type": "array", "items": { "type": "string" } },
+        "permissions": { "type": "object" },
+        "categories": { "type": "object" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global settings and configuration for the application",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "registrationEnabled": { "type": "boolean" },
+        "globalBannerText": { "type": "string" },
+        "autoVerifyNewUsers": { "type": "boolean" },
+        "appCustomTitle": { "type": "string" }
+      }
+    },
+    "ShortMessage": {
+      "title": "ShortMessage",
+      "description": "Short quick message sent to break the ice before being connected",
+      "type": "object",
+      "properties": {
+        "fromUserId": { "type": "string" },
+        "toUserId": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "number" }
+      }
+    },
+    "VerificationRequest": {
+      "title": "VerificationRequest",
+      "description": "Identity verification request containing a selfie uploaded by a user, pending admin approval",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "selfieUrl": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "userName": { "type": "string" },
+        "userApelido": { "type": "string" },
+        "rejectionReason": { "type": "string" }
+      },
+      "required": ["userId", "selfieUrl", "status", "createdAt", "updatedAt"]
+    },
+    "LocationHistory": {
+      "title": "LocationHistory",
+      "description": "Historical log of geolocation and status updates of a user",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string" },
+        "status": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "timestamp": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/verificationRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/VerificationRequest" },
+      "description": "User requests for identity verification using a selfie"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/AppConfig" },
+      "description": "Global application configurations"
+    },
+    "/shortMessages/{messageId}": {
+      "schema": { "$ref": "#/entities/ShortMessage" },
+      "description": "Short quick messages"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "User public profiles"
+    },
+    "/locations/{userId}": {
+      "schema": { "$ref": "#/entities/UserLocation" },
+      "description": "User private locations (indexed by userId for easy backend access and geocoding)"
+    },
+    "/locations/{userId}/history/{historyDocId}": {
+      "schema": { "$ref": "#/entities/LocationHistory" },
+      "description": "Historical log of geolocation and status updates of a user"
+    },
+    "/interactions/{interactionId}": {
+      "schema": { "$ref": "#/entities/Interaction" },
+      "description": "User interactions like flirts or invites"
+    },
+    "/friendships/{friendshipId}": {
+      "schema": { "$ref": "#/entities/Friendship" },
+      "description": "Confirmed connections"
+    },
+    "/friendRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/FriendRequest" },
+      "description": "Pending and processed friend requests"
+    },
+    "/connections/{connectionId}": {
+      "schema": { "$ref": "#/entities/Connection" },
+      "description": "Accepted friend connections"
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/Chat" },
+      "description": "Chat sessions metadata"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Chat messages"
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/Report" },
+      "description": "User reports"
+    },
+    "/blocks/{blockId}": {
+      "schema": { "$ref": "#/entities/Block" },
+      "description": "Blocked users"
+    }
+  }
+}
