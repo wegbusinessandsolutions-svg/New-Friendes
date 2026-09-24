@@ -28,6 +28,8 @@ const FlirtSwipe = lazy(() => import('./pages/FlirtSwipe'));
 const RecentActivities = lazy(() => import('./pages/RecentActivities'));
 
 import Header from './components/Header';
+import { generateUserRegistrationId } from './utils/userId';
+import { openNativeSms } from './utils/sms';
 import Navigation from './components/Navigation';
 import { useTheme, applyTheme, Theme } from './lib/theme';
 import WalkthroughTour from './components/WalkthroughTour';
@@ -117,6 +119,7 @@ export default function App() {
     registrationEnabled: true,
     globalBannerText: '',
     autoVerifyNewUsers: false,
+    requireEmailVerification: false,
     appCustomTitle: 'New Friends.br'
   });
 
@@ -184,7 +187,12 @@ export default function App() {
             const data = snap.data();
             const nextHasProfile = true;
             const nextRole = data.role || null;
-            const nextVerified = data.verified || false;
+            const nextVerified = Boolean(
+              data.verified || 
+              data.emailVerified || 
+              data.profile?.verified || 
+              data.profile?.emailVerified
+            );
             const nextIsStandby = data.status?.ativo === false;
             const nextFaceRequired = data.faceLoginEnabled === true && sessionStorage.getItem(`face_verified_${u.uid}`) !== 'true';
 
@@ -208,14 +216,6 @@ export default function App() {
               setUserDocVerified(nextVerified);
               setIsStandby(nextIsStandby);
               setFaceVerificationRequired(nextFaceRequired);
-            }
-
-            // Sync user preference theme dynamically if present
-            if (data.theme && ['light', 'dark', 'system'].includes(data.theme)) {
-              const currentTheme = localStorage.getItem('theme');
-              if (currentTheme !== data.theme) {
-                setTheme(data.theme as Theme);
-              }
             }
           } else {
             const nextHasProfile = false;
@@ -252,12 +252,17 @@ export default function App() {
               try {
                 const { setDoc } = await import('firebase/firestore');
                 const isAdminWeg = u.email === 'sac@wegbusiness.com' || u.email === 'ceo@wegbusiness.com' || u.email === 'wegbusinessandsolutions@gmail.com';
+                const adminRegId = generateUserRegistrationId();
                 await setDoc(doc(db, 'users', u.uid), { 
+                  codigoUsuario: adminRegId,
+                  idNumerico: adminRegId,
                   verified: true, 
                   role: 'Admin',
                   nome: isAdminWeg ? 'Admin WEG' : 'CEO',
                   apelido: isAdminWeg ? 'Admin' : 'CEO',
                   profile: {
+                    codigoUsuario: adminRegId,
+                    idNumerico: adminRegId,
                     nome: isAdminWeg ? 'Admin WEG' : 'CEO',
                     apelido: isAdminWeg ? 'Admin' : 'CEO',
                     idade: 35,
@@ -546,12 +551,12 @@ export default function App() {
               });
               console.log("[SOS Tracker Background] Location updated:", latitude, longitude);
 
-              // Check if we should send a WhatsApp location update message (every 3 minutes, skipping the first run)
-              const lastWaSent = localStorage.getItem('sos_last_wa_sent');
+              // Check if we should send a location update SMS (every 3 minutes, skipping the first run)
+              const lastSmsSent = localStorage.getItem('sos_last_wa_sent');
               const phone = localStorage.getItem('sos_contact_phone');
               const now = Date.now();
-              if (lastWaSent && phone) {
-                const diff = now - parseInt(lastWaSent, 10);
+              if (lastSmsSent && phone) {
+                const diff = now - parseInt(lastSmsSent, 10);
                 // Check if at least 2.5 minutes (150000ms) have passed
                 if (diff >= 150000) {
                   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -564,22 +569,15 @@ export default function App() {
                   const seconds = pad(dObj.getSeconds());
                   const dateTimeStr = `${day}/${month}/${year} às ${hours}:${minutes}:${seconds}`;
 
-                  const locationUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=17/${latitude}/${longitude}`;
+                  const locationUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
-                  const formattedMessage = `⚠️ [ALERTA DE EMERGÊNCIA ATUALIZADO] Minha posição atual é essa: ${locationUrl}\nData e horário: ${dateTimeStr}\n\nPor favor vá atualizando as autoridades policiais.`;
-
-                  let cleanPhone = phone.replace(/\D/g, '');
-                  if (cleanPhone.length === 11 || cleanPhone.length === 10) {
-                    cleanPhone = '55' + cleanPhone;
-                  }
-                  const encodedMsg = encodeURIComponent(formattedMessage);
-                  const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
+                  const formattedMessage = `🚨 [SOS ATUALIZAÇÃO] Minha localização agora: ${locationUrl} (${dateTimeStr}). Repasse à polícia (190)!`;
 
                   localStorage.setItem('sos_last_wa_sent', now.toString());
-                  window.open(waUrl, '_blank');
-                  console.log("[SOS Tracker Background] Opened WhatsApp update message redirect.");
+                  openNativeSms(phone, formattedMessage);
+                  console.log("[SOS Tracker Background] Triggered SMS location update.");
                 }
-              } else if (!lastWaSent && phone) {
+              } else if (!lastSmsSent && phone) {
                 localStorage.setItem('sos_last_wa_sent', now.toString());
               }
             } catch (err) {
@@ -641,6 +639,7 @@ export default function App() {
         setUser={setUser}
         isAdmin={isAdmin}
         appConfig={appConfig}
+        userDocVerified={userDocVerified}
         faceVerificationRequired={faceVerificationRequired}
         setFaceVerificationRequired={setFaceVerificationRequired}
         isStandby={isStandby}
@@ -678,6 +677,7 @@ interface AuthenticatedLayoutProps {
   setUser: (user: User | null) => void;
   isAdmin: boolean;
   appConfig: any;
+  userDocVerified?: boolean;
   faceVerificationRequired: boolean;
   setFaceVerificationRequired: (val: boolean) => void;
   isStandby: boolean;
@@ -694,6 +694,7 @@ function AuthenticatedLayout({
   setUser,
   isAdmin,
   appConfig,
+  userDocVerified = false,
   faceVerificationRequired,
   setFaceVerificationRequired,
   isStandby,
@@ -794,7 +795,14 @@ function AuthenticatedLayout({
   }
 
   // 6. Email verification block
-  if (!user.emailVerified && !isAdmin) {
+  const isEmailVerified = Boolean(
+    user.emailVerified || 
+    userDocVerified || 
+    (appConfig && appConfig.requireEmailVerification === false) ||
+    sessionStorage.getItem(`skip_email_verify_${user.uid}`) === 'true'
+  );
+
+  if (!isEmailVerified && !isAdmin) {
     return (
       <VerifyEmail 
         user={user} 
@@ -849,6 +857,7 @@ interface AnimatedRoutesProps {
   setUser: (user: User | null) => void;
   isAdmin: boolean;
   appConfig: any;
+  userDocVerified?: boolean;
   faceVerificationRequired: boolean;
   setFaceVerificationRequired: (val: boolean) => void;
   isStandby: boolean;
@@ -869,6 +878,7 @@ function AnimatedRoutes({
   setUser,
   isAdmin,
   appConfig,
+  userDocVerified = false,
   faceVerificationRequired,
   setFaceVerificationRequired,
   isStandby,
@@ -900,6 +910,7 @@ function AnimatedRoutes({
               setUser={setUser}
               isAdmin={isAdmin}
               appConfig={appConfig}
+              userDocVerified={userDocVerified}
               faceVerificationRequired={faceVerificationRequired}
               setFaceVerificationRequired={setFaceVerificationRequired}
               isStandby={isStandby}

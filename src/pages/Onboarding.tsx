@@ -12,6 +12,8 @@ import { resizeImage } from '../lib/resizeImage';
 import React, { useState } from 'react';
 import { auth, db, handleFirestoreError, OperationType, storage } from '../lib/firebase';
 import { doc, setDoc, serverTimestamp, getDoc, collection, addDoc } from 'firebase/firestore';
+import { generateUserRegistrationId } from '../utils/userId';
+import { getZodiacSignFromDate } from '../utils/zodiac';
 
 
 export default function Onboarding({ onComplete }: { onComplete: () => void }) {
@@ -22,6 +24,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     sexo: '',
     genero: '',
     interesse: '',
+    receberContatosDe: 'todos',
     altura: '',
     signo: '',
     profissao: '',
@@ -116,6 +119,8 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
     setFormData({...formData, telefone: formatted});
   };
 
+  const currentZodiac = getZodiacSignFromDate(formData.dataNascimento);
+
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
     // Remove all non-digits
@@ -128,7 +133,12 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
       value = `${value.slice(0, 2)}-${value.slice(2, 4)}-${value.slice(4, 8)}`;
     }
     
-    setFormData({ ...formData, dataNascimento: value });
+    const autoZodiac = getZodiacSignFromDate(value);
+    setFormData(prev => ({
+      ...prev,
+      dataNascimento: value,
+      signo: autoZodiac ? `${autoZodiac.name} ${autoZodiac.symbol}` : prev.signo
+    }));
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,8 +214,28 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
       }
 
       const userRef = doc(db, 'users', auth.currentUser.uid);
+      let userRegistrationId = sessionStorage.getItem('temp_user_reg_id');
+      try {
+        const existingDocSnap = await getDoc(userRef);
+        if (existingDocSnap.exists()) {
+          const docData = existingDocSnap.data();
+          if (docData.codigoUsuario || docData.idNumerico) {
+            userRegistrationId = docData.codigoUsuario || docData.idNumerico;
+          }
+        }
+      } catch (errSnap) {
+        console.error("Error reading existing user ID in Onboarding:", errSnap);
+      }
+      if (!userRegistrationId) {
+        userRegistrationId = generateUserRegistrationId();
+      }
+
       const initialProfile = {
+        codigoUsuario: userRegistrationId,
+        idNumerico: userRegistrationId,
         profile: {
+          codigoUsuario: userRegistrationId,
+          idNumerico: userRegistrationId,
           nome: formData.nome,
           apelido: formData.apelido,
           dataNascimento: formData.dataNascimento,
@@ -213,6 +243,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
           sexo: formData.sexo,
           genero: formData.genero,
           interesse: formData.interesse,
+          receberContatosDe: formData.receberContatosDe || 'todos',
           altura: formData.altura,
           signo: formData.signo,
           profissao: formData.profissao,
@@ -251,7 +282,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
         createdAt: serverTimestamp(),
       };
       
-      const setDocPromise = setDoc(userRef, initialProfile); await Promise.race([setDocPromise, new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT_SAVING")), 5000))]);
+      const setDocPromise = setDoc(userRef, initialProfile, { merge: true }); await Promise.race([setDocPromise, new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT_SAVING")), 5000))]);
       
       // Initialize a location record so they show up on search results/discover/matches instantly
       try {
@@ -351,7 +382,16 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
           <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Foto Principal</label>
           <div className="relative">
             <img src={formData.fotoPrincipalUrl} alt="Sua Foto" className="w-24 h-24 rounded-full object-cover border-4 border-indigo-100 shadow-sm" />
-            <label className="absolute bottom-0 right-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-2 cursor-pointer shadow-md transition-colors">
+            {currentZodiac && (
+              <div 
+                className="absolute -top-1.5 -right-3 bg-slate-900/90 text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-400/40 shadow-md flex items-center gap-1 animate-scale-in select-none backdrop-blur-xs z-10"
+                title={`Signo: ${currentZodiac.name}`}
+              >
+                <span className="text-xs">{currentZodiac.symbol}</span>
+                <span className="text-white font-bold">{currentZodiac.name}</span>
+              </div>
+            )}
+            <label className="absolute bottom-0 right-0 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-2 cursor-pointer shadow-md transition-colors z-10">
               {isUploadingImage ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
@@ -424,6 +464,39 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
               <option value="feminino">Mulheres</option>
               <option value="todos">Todos (Homens e Mulheres)</option>
             </select>
+          </div>
+        </div>
+
+        {/* Quero receber contatos, apenas de */}
+        <div className="space-y-2 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100">
+          <label className="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-1.5">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Quero receber contatos, apenas de:
+          </label>
+          <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
+            Defina de quem você aceita receber interações e mensagens. Esta opção poderá ser alterada a qualquer momento no seu perfil.
+          </p>
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {[
+              { id: 'mulheres', label: 'Mulheres' },
+              { id: 'homens', label: 'Homens' },
+              { id: 'todos', label: 'Não Faço Distinção' }
+            ].map((opt) => (
+              <button
+                type="button"
+                key={opt.id}
+                onClick={() => setFormData({ ...formData, receberContatosDe: opt.id })}
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all text-center border cursor-pointer ${
+                  formData.receberContatosDe === opt.id
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 ring-2 ring-indigo-200'
+                    : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -515,22 +588,27 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
             <input required type="number" step="0.01" placeholder="Ex: 1.75" value={formData.altura} onChange={e => setFormData({...formData, altura: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-900" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">Signo</label>
-            <select required value={formData.signo} onChange={e => setFormData({...formData, signo: e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-900 appearance-none">
-              <option value="" disabled>Selecione</option>
-              <option value="aries">Áries</option>
-              <option value="touro">Touro</option>
-              <option value="gemeos">Gêmeos</option>
-              <option value="cancer">Câncer</option>
-              <option value="leao">Leão</option>
-              <option value="virgem">Virgem</option>
-              <option value="libra">Libra</option>
-              <option value="escorpiao">Escorpião</option>
-              <option value="sagitario">Sagitário</option>
-              <option value="capricornio">Capricórnio</option>
-              <option value="aquario">Aquário</option>
-              <option value="peixes">Peixes</option>
-            </select>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">Signo</label>
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                Automático
+              </span>
+            </div>
+            {currentZodiac ? (
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-slate-900 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl leading-none text-amber-500 font-black">{currentZodiac.symbol}</span>
+                  <div>
+                    <span className="text-xs font-extrabold text-slate-800 block leading-tight">{currentZodiac.name}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-xl px-3.5 py-3 text-xs text-slate-400 italic">
+                Definido pela data de nascimento
+              </div>
+            )}
+            <input type="hidden" name="signo" value={formData.signo || (currentZodiac ? `${currentZodiac.name} ${currentZodiac.symbol}` : '')} />
           </div>
         </div>
 

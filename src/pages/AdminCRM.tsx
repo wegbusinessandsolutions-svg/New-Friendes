@@ -31,11 +31,17 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { getUserRegistrationId } from '../utils/userId';
+import ZodiacBadge from '../components/ZodiacBadge';
 
 interface CrmUser {
   id: string;
   email: string;
   role?: string;
+  codigoUsuario?: string;
+  idNumerico?: string;
+  createdAt?: any;
+  criadoEm?: number;
   profile?: {
     nome: string;
     apelido?: string;
@@ -47,6 +53,8 @@ interface CrmUser {
     fotoPrincipalUrl?: string;
     verified?: boolean;
     email?: string;
+    codigoUsuario?: string;
+    idNumerico?: string;
   };
   status?: {
     ativo?: boolean;
@@ -77,6 +85,7 @@ export default function AdminCRM() {
     registrationEnabled: true,
     globalBannerText: '',
     autoVerifyNewUsers: false,
+    requireEmailVerification: false,
     appCustomTitle: 'New Friends.br'
   });
 
@@ -375,18 +384,23 @@ export default function AdminCRM() {
       const { db } = await import('../lib/firebase');
       
       await setDoc(doc(db, 'users', user.id), {
+        verified: !currentStatus,
+        emailVerified: !currentStatus,
         profile: {
-          verified: !currentStatus
+          verified: !currentStatus,
+          emailVerified: !currentStatus
         }
       }, { merge: true });
 
       setUsers(users.map(u => u.id === user.id ? { 
         ...u, 
         verified: !currentStatus,
+        emailVerified: !currentStatus,
         profile: {
           ...u.profile,
           nome: getUserNome(u),
-          verified: !currentStatus
+          verified: !currentStatus,
+          emailVerified: !currentStatus
         }
       } : u));
     } catch (err) {
@@ -544,9 +558,12 @@ export default function AdminCRM() {
   };
 
   const filteredUsers = users.filter(u => {
+    const regId = getUserRegistrationId(u);
     const matchSearch = getUserNome(u).toLowerCase().includes(searchTerm.toLowerCase()) || 
       getUserApelido(u).toLowerCase().includes(searchTerm.toLowerCase()) ||
-      getUserEmail(u).toLowerCase().includes(searchTerm.toLowerCase());
+      getUserEmail(u).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      regId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.id.toLowerCase().includes(searchTerm.toLowerCase());
       
     const matchSexo = filterSexo ? u.profile?.sexo === filterSexo : true;
     const matchDataNasc = filterDataNasc ? u.profile?.dataNascimento === filterDataNasc : true;
@@ -738,8 +755,9 @@ export default function AdminCRM() {
                             ) : (
                               <span>{nome ? nome[0].toUpperCase() : <User className="w-5 h-5" />}</span>
                             )}
+                            <ZodiacBadge user={user} variant="avatar-badge" />
                             {isBanned && (
-                              <span className="absolute -bottom-1 -right-1 bg-red-600 text-white p-0.5 rounded-full">
+                              <span className="absolute -bottom-1 -right-1 bg-red-600 text-white p-0.5 rounded-full z-10">
                                 <Lock className="w-3 h-3" />
                               </span>
                             )}
@@ -749,7 +767,10 @@ export default function AdminCRM() {
                               {nome}
                               {verified && <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" aria-label="Verificado" />}
                             </h3>
-                            <p className="text-[11px] text-slate-400 truncate font-mono">{getUserEmail(user)}</p>
+                            <p className="text-[11px] text-slate-500 truncate font-mono">
+                              <span className="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded mr-1">ID: {getUserRegistrationId(user)}</span>
+                              <span>{getUserEmail(user)}</span>
+                            </p>
                             <p className="text-[11px] text-slate-400 mt-0.5">
                               {getUserIdade(user)} anos • {getUserSexo(user)}
                             </p>
@@ -858,8 +879,9 @@ export default function AdminCRM() {
                           ) : (
                             <span>{nome ? nome[0].toUpperCase() : <User className="w-5 h-5" />}</span>
                           )}
+                          <ZodiacBadge user={user} variant="avatar-badge" />
                           {isBanned && (
-                            <span className="absolute -bottom-1 -right-1 bg-red-600 text-white p-0.5 rounded-full">
+                            <span className="absolute -bottom-1 -right-1 bg-red-600 text-white p-0.5 rounded-full z-10">
                               <Lock className="w-3 h-3" />
                             </span>
                           )}
@@ -869,7 +891,10 @@ export default function AdminCRM() {
                             {nome}
                             {verified && <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />}
                           </h3>
-                          <p className="text-xs text-slate-400 font-mono truncate">{getUserEmail(user)}</p>
+                          <p className="text-xs text-slate-500 font-mono truncate">
+                            <span className="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded mr-1">ID: {getUserRegistrationId(user)}</span>
+                            <span>{getUserEmail(user)}</span>
+                          </p>
                           <p className="text-xs text-slate-400 mt-0.5">
                             {getUserIdade(user)} anos • {getUserSexo(user)}
                           </p>
@@ -1031,6 +1056,21 @@ export default function AdminCRM() {
                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${appConfig.autoVerifyNewUsers ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
+
+            {/* Exigir confirmação de e-mail */}
+            <div className="flex items-center justify-between py-2 border-t border-slate-100">
+              <div className="space-y-1 max-w-[70%]">
+                <label className="text-sm font-bold text-slate-800">Exigir confirmação de e-mail para acesso</label>
+                <p className="text-xs text-slate-400">Quando desligado, usuários podem navegar no app mesmo se o e-mail estiver na caixa de spam ou atrasar a entrega.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAppConfig(prev => ({ ...prev, requireEmailVerification: !prev.requireEmailVerification }))}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${appConfig.requireEmailVerification ? 'bg-indigo-600' : 'bg-slate-200'}`}
+              >
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${appConfig.requireEmailVerification ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
@@ -1187,31 +1227,42 @@ export default function AdminCRM() {
 
       {/* --- MODAL 1: EDIT PROFILE / DETAILS --- */}
       {editingUser && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-2.5 sm:p-4 z-50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] border border-slate-200 dark:border-slate-800">
             
             {/* Modal Header */}
-            <div className="bg-indigo-600 text-white p-5 flex items-center justify-between">
+            <div className="bg-indigo-600 text-white px-5 py-4 flex items-center justify-between shrink-0 shadow-xs">
               <div className="flex items-center gap-2">
                 <Edit2 className="w-5 h-5" />
                 <h2 className="font-extrabold text-base">Editar Cadastro & Nível</h2>
               </div>
               <button 
+                type="button"
                 onClick={() => setEditingUser(null)}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+                aria-label="Fechar"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body / Form */}
-            <form onSubmit={handleSaveUserEdit} className="p-5 space-y-4 overflow-y-auto flex-1">
+            {/* Modal Body / Form - Scrollable with min-h-0 so flexbox allows scrolling */}
+            <form id="edit-user-form" onSubmit={handleSaveUserEdit} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
               
-              {/* User Email (Info only) */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs text-slate-500 font-mono">
-                ID do Usuário: <span className="font-bold text-slate-700">{editingUser.id}</span>
-                <br />
-                E-mail de Cadastro: <span className="font-bold text-indigo-600">{getUserEmail(editingUser)}</span>
+              {/* User Email & Registration ID (Info only) */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-mono space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-sans font-semibold">ID do Usuário:</span>
+                  <span className="font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                    {getUserRegistrationId(editingUser)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-sans font-semibold">E-mail de Cadastro:</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 truncate max-w-[200px]">
+                    {getUserEmail(editingUser)}
+                  </span>
+                </div>
               </div>
 
               {/* Nome */}
@@ -1222,7 +1273,7 @@ export default function AdminCRM() {
                   type="text"
                   value={editForm.nome}
                   onChange={(e) => setEditForm({ ...editForm, nome: e.target.value })}
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
                 />
               </div>
 
@@ -1234,7 +1285,7 @@ export default function AdminCRM() {
                   type="text"
                   value={editForm.apelido}
                   onChange={(e) => setEditForm({ ...editForm, apelido: e.target.value })}
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 font-semibold"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100 font-semibold"
                 />
               </div>
 
@@ -1246,7 +1297,7 @@ export default function AdminCRM() {
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
                 />
               </div>
 
@@ -1258,7 +1309,7 @@ export default function AdminCRM() {
                   type="text"
                   value={editForm.cidadeNascimento}
                   onChange={(e) => setEditForm({ ...editForm, cidadeNascimento: e.target.value })}
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
                 />
               </div>
 
@@ -1270,7 +1321,7 @@ export default function AdminCRM() {
                   type="text"
                   value={editForm.estadoNascimento}
                   onChange={(e) => setEditForm({ ...editForm, estadoNascimento: e.target.value })}
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 uppercase"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100 uppercase"
                   maxLength={2}
                   placeholder="Ex: SP"
                 />
@@ -1282,7 +1333,7 @@ export default function AdminCRM() {
                 <select
                   value={editForm.role}
                   onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
                 >
                   <option value="Usuário">Usuário (Padrão)</option>
                   <option value="Moderador">Moderador</option>
@@ -1295,10 +1346,10 @@ export default function AdminCRM() {
                 <button
                   type="button"
                   onClick={() => handleToggleVerified(editingUser)}
-                  className={`w-full py-2.5 text-xs font-bold rounded-xl border flex items-center justify-center gap-2 transition-all ${
+                  className={`w-full py-2.5 text-xs font-bold rounded-xl border flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     getUserVerified(editingUser) 
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300' 
+                      : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                   }`}
                 >
                   <CheckCircle className="w-4 h-4 shrink-0" />
@@ -1306,25 +1357,27 @@ export default function AdminCRM() {
                 </button>
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingUser(null)}
-                  className="flex-1 py-3 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-3 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Save className="w-4 h-4" />
-                  Salvar Cadastro
-                </button>
-              </div>
-
             </form>
+
+            {/* Modal Sticky Footer with Confirmation Buttons - ALWAYS VISIBLE on mobile & desktop */}
+            <div className="shrink-0 p-3.5 sm:p-4 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex gap-2.5 z-10 shadow-lg">
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="flex-1 py-3 text-xs font-bold bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl transition-all cursor-pointer text-center"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                form="edit-user-form"
+                className="flex-1 py-3 text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white rounded-xl shadow-md shadow-indigo-200 dark:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Salvar Cadastro</span>
+              </button>
+            </div>
+
           </div>
         </div>
       )}

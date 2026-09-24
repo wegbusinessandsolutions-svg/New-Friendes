@@ -43,13 +43,14 @@ import {
   Store,
   Navigation,
   Loader2,
-  Camera, Shield, Share2
+  Camera, Shield, Share2,
+  Gift, Sparkles, RotateCcw
 } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
   senderId: string;
-  type: 'text' | 'emoticon' | 'audio' | 'video' | 'location' | 'photo';
+  type: 'text' | 'emoticon' | 'audio' | 'video' | 'location' | 'photo' | 'sticker' | 'saudacao' | 'presente';
   text?: string;
   mediaData?: string;
   locationData?: {
@@ -68,6 +69,92 @@ interface ChatMessage {
 }
 
 const EMOTICONS = ["😀", "😂", "😍", "😎", "😜", "👍", "❤️", "🔥", "🎉", "🚀", "👀", "👏", "🙌", "💩"];
+
+// Rich 4-column Sticker bank matching chat screenshots
+const STICKERS = [
+  { emoji: '😏', label: 'Sorriso Malicioso' },
+  { emoji: '🙂', label: 'Sorriso Gentil' },
+  { emoji: '😍', label: 'Apaixonado' },
+  { emoji: '😒', label: 'Desconfiado' },
+  { emoji: '😴', label: 'Com Sono' },
+  { emoji: '😃', label: 'Sorrisão' },
+  { emoji: '👍', label: 'Joinha' },
+  { emoji: '😚', label: 'Beijo Tímido' },
+  { emoji: '❤️', label: 'Coração' },
+  { emoji: '🥳', label: 'Festa' },
+  { emoji: '😘', label: 'Beijo' },
+  { emoji: '🤗', label: 'Abraço' },
+  { emoji: '😎', label: 'Estiloso' },
+  { emoji: '😌', label: 'Aliviado' },
+  { emoji: '😮', label: 'Surpreso' },
+  { emoji: '😷', label: 'Máscara' },
+  { emoji: '😐', label: 'Neutro' },
+  { emoji: '😡', label: 'Bravo' },
+  { emoji: '😂', label: 'Chorando de Rir' },
+  { emoji: '🥺', label: 'Olhar Carente' },
+  { emoji: '🥶', label: 'Congelando' },
+  { emoji: '😵', label: 'Tonto' },
+  { emoji: '😭', label: 'Chorando' },
+  { emoji: '😆', label: 'Gargalhada' },
+  { emoji: '🤯', label: 'Cabeça Explodindo' },
+  { emoji: '😲', label: 'Boca Aberta' },
+  { emoji: '🤭', label: 'Mão na Boca' },
+  { emoji: '😑', label: 'Sem Expressão' },
+  { emoji: '🙃', label: 'De Ponta-Cabeça' },
+  { emoji: '🤬', label: 'Irritado' },
+  { emoji: '😊', label: 'Tímido Sorridente' },
+  { emoji: '🧐', label: 'Monóculo' },
+  { emoji: '😜', label: 'Piscando com Língua' },
+  { emoji: '👌', label: 'Perfeito' },
+  { emoji: '✌️', label: 'Paz' },
+  { emoji: '👏', label: 'Palmas' },
+  { emoji: '😳', label: 'Envergonhado' },
+  { emoji: '🔥', label: 'Fogo' },
+  { emoji: '🎉', label: 'Confete' },
+  { emoji: '💩', label: 'Cocô Divertido' },
+  { emoji: '🤢', label: 'Enjoado' },
+  { emoji: '😇', label: 'Anjinho' },
+  { emoji: '🤓', label: 'Nerd' },
+  { emoji: '🥰', label: 'Coraçõezinhos' },
+  { emoji: '🌹', label: 'Rosa' },
+  { emoji: '✨', label: 'Brilho' },
+  { emoji: '💋', label: 'Beijo' },
+  { emoji: '😉', label: 'Piscadinha' },
+];
+
+// Pre-defined icebreaker greetings tailored for conversation openers
+const getGreetingsList = (friendName: string) => {
+  const name = friendName ? friendName.trim().split(' ')[0] : '';
+  const nameGreeting = name ? `Oi, ${name}!` : 'Oi!';
+  return [
+    "Meu relógio parou quando vi sua foto. Agora vou ter que ir ao relojoeiro 😒",
+    `${nameGreeting} Se você tivesse um teletransporte, para onde iria?`,
+    "Oi! O que fez você se registrar aqui? Só estou curioso :)",
+    `${nameGreeting} Vim aqui só para dizer que seu sorriso chamou minha atenção de cara ✨`,
+    "Se a gente combinasse de tomar um café agora, qual seria seu pedido favorito?",
+    "Pergunta séria: pizza com ou sem borda recheada? Dependendo da resposta já temos um encontro 🍕",
+    "Estava navegando no app e confesso que seu perfil foi o que mais se destacou por aqui!",
+    `${nameGreeting} Qual é a coisa mais engraçada ou aleatória que te aconteceu essa semana?`,
+    "Você tem cara de quem tem as melhores playlists. Acertei ou errei feio? 🎶",
+    `${nameGreeting} Se você pudesse jantar com qualquer pessoa do mundo hoje, quem você escolheria?`,
+    "Adorei suas fotos! Você parece ser uma pessoa de energia incrível 😄",
+    `${nameGreeting} Praia com sol ou filminho com edredom no frio? Me ajuda a te conhecer melhor!`,
+    "Passei por aqui, vi seu perfil e não resisti em puxar assunto... tudo bem com você? 😊",
+    `${nameGreeting} Se o nosso primeiro encontro fosse um filme, qual gênero você escolheria?`
+  ];
+};
+
+// Virtual gifts options
+const GIFTS = [
+  { id: 'rose', name: 'Rosa Encantada', emoji: '🌹', description: 'Uma linda flor para alegrar seu dia!' },
+  { id: 'chocolate', name: 'Chocolates Finos', emoji: '🍫', description: 'Um doce momento para você!' },
+  { id: 'teddy', name: 'Ursinho Carinhoso', emoji: '🧸', description: 'Um abraço apertado em pelúcia!' },
+  { id: 'diamond', name: 'Diamante Raro', emoji: '💎', description: 'Você é uma joia rara!' },
+  { id: 'champagne', name: 'Champanhe de Celebração', emoji: '🍾', description: 'Um brinde ao nosso encontro!' },
+  { id: 'coffee', name: 'Café Quentinho', emoji: '☕', description: 'Que tal um café para começarmos uma conversa?' },
+  { id: 'cocktail', name: 'Drinque Refrescante', emoji: '🍸', description: 'Um brinde para quebrar o gelo!' },
+  { id: 'bouquet', name: 'Buquê de Flores', emoji: '💐', description: 'Flores especiais para alguém especial!' },
+];
 
 const getObjectiveLabel = (obj: string) => {
   if (!obj) return '';
@@ -130,6 +217,10 @@ export default function ChatRoom() {
   const [friendId, setFriendId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showStickerTray, setShowStickerTray] = useState(false);
+  const [showGreetingsModal, setShowGreetingsModal] = useState(false);
+  const [greetingOffset, setGreetingOffset] = useState(0);
+  const [showGiftsModal, setShowGiftsModal] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<ChatMessage | null>(null);
   const [chatReady, setChatReady] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<ChatMessage | null>(null);
@@ -812,7 +903,10 @@ export default function ChatRoom() {
     await sendMediaMessage('text', textToSend);
   };
 
-  const sendMediaMessage = async (type: 'text' | 'emoticon' | 'audio' | 'video' | 'photo', content: string) => {
+  const sendMediaMessage = async (
+    type: 'text' | 'emoticon' | 'audio' | 'video' | 'photo' | 'sticker' | 'saudacao' | 'presente', 
+    content: string
+  ) => {
     if (!auth.currentUser || !chatId) return;
     if (isBlockedByMe || isBlockedByFriend) {
       return;
@@ -825,8 +919,8 @@ export default function ChatRoom() {
       id: messageId,
       senderId: auth.currentUser.uid,
       type,
-      text: type === 'text' || type === 'emoticon' ? content : '',
-      mediaData: type === 'audio' || type === 'video' || type === 'photo' ? content : undefined,
+      text: (type === 'text' || type === 'emoticon' || type === 'sticker' || type === 'saudacao' || type === 'presente') ? content : '',
+      mediaData: (type === 'audio' || type === 'video' || type === 'photo') ? content : undefined,
       sentAt: nowStr,
       status: 'sent',
       read: false
@@ -854,6 +948,12 @@ export default function ChatRoom() {
         if (type === 'video') textPreview = '📹 Vídeo';
         if (type === 'photo') textPreview = '📷 Foto';
         if (type === 'emoticon') textPreview = localMsg.text || '😀 Emoticon';
+        if (type === 'sticker') textPreview = `🎭 Sticker ${localMsg.text}`;
+        if (type === 'saudacao') textPreview = `👋 Saudação: "${localMsg.text?.slice(0, 32)}..."`;
+        if (type === 'presente') {
+          const gName = (localMsg.text || '').split('|')[0] || 'Presente';
+          textPreview = `🎁 Presente: ${gName}`;
+        }
 
         await updateDoc(doc(db, 'chats', chatId), {
           ultimaMensagem: textPreview,
@@ -1224,10 +1324,14 @@ export default function ChatRoom() {
 
               <div 
                 onClick={() => setSelectedMessage(msg)}
-                className={`max-w-[80%] rounded-2xl p-3 shadow-sm text-sm cursor-pointer hover:scale-[1.01] transition-transform ${
-                  isMine 
-                    ? 'bg-indigo-600 text-white rounded-br-none' 
-                    : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
+                className={`max-w-[80%] rounded-2xl cursor-pointer hover:scale-[1.01] transition-transform ${
+                  msg.type === 'sticker'
+                    ? 'p-1 bg-transparent border-0 shadow-none'
+                    : `p-3 shadow-sm text-sm ${
+                        isMine 
+                          ? 'bg-indigo-600 text-white rounded-br-none' 
+                          : 'bg-white border border-slate-200 text-slate-800 rounded-bl-none'
+                      }`
                 }`}
               >
                 {/* Text Message */}
@@ -1239,6 +1343,45 @@ export default function ChatRoom() {
                 {msg.type === 'emoticon' && (
                   <div className="text-4xl py-1 text-center pr-1">{msg.text}</div>
                 )}
+
+                {/* Sticker Message */}
+                {msg.type === 'sticker' && (
+                  <div className="py-0.5 px-1 flex flex-col items-center justify-center">
+                    <span className="text-6xl sm:text-7xl drop-shadow-md select-none transform hover:scale-110 transition-transform duration-200">
+                      {msg.text}
+                    </span>
+                  </div>
+                )}
+
+                {/* Saudação Message */}
+                {msg.type === 'saudacao' && (
+                  <div className="space-y-1">
+                    <div className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                      isMine ? 'text-indigo-200' : 'text-indigo-600 dark:text-indigo-400'
+                    }`}>
+                      <Sparkles className="w-3 h-3" />
+                      <span>Saudação</span>
+                    </div>
+                    <p className="whitespace-pre-wrap break-words italic pr-1 font-medium leading-relaxed">
+                      "{msg.text}"
+                    </p>
+                  </div>
+                )}
+
+                {/* Presente Message */}
+                {msg.type === 'presente' && (() => {
+                  const parts = (msg.text || '').split('|');
+                  const gName = parts[0] || 'Presente Virtual';
+                  const gEmoji = parts[1] || '🎁';
+                  const gDesc = parts[2] || 'Um presente carinhoso!';
+                  return (
+                    <div className="p-1 space-y-1 text-center min-w-[150px]">
+                      <div className="text-4xl animate-bounce my-1">{gEmoji}</div>
+                      <p className="font-extrabold text-xs">{gName}</p>
+                      <p className={`text-[10px] ${isMine ? 'text-indigo-100' : 'text-slate-500'}`}>{gDesc}</p>
+                    </div>
+                  );
+                })()}
 
                 {/* Audio Message */}
                 {msg.type === 'audio' && msg.mediaData && (
@@ -1310,7 +1453,11 @@ export default function ChatRoom() {
                 )}
 
                 {/* Bubble Footer / Status Indicators */}
-                <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 ${isMine ? 'text-indigo-200' : 'text-slate-400'}`}>
+                <div className={`flex items-center justify-end gap-1 text-[9px] mt-1.5 ${
+                  msg.type === 'sticker' 
+                    ? 'text-slate-400 dark:text-slate-500 font-semibold' 
+                    : isMine ? 'text-indigo-200' : 'text-slate-400'
+                }`}>
                   <span>
                     {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -1423,6 +1570,29 @@ export default function ChatRoom() {
         </div>
       )}
 
+      {/* Photo Warning Banner if current user has no main photo matching screenshot 1 */}
+      {myProfile && !myProfile.fotoPrincipalUrl && (
+        <div className="bg-white dark:bg-slate-900 border-t border-slate-200/90 dark:border-slate-800 p-3 flex items-center gap-3 shrink-0 shadow-xs">
+          <div className="w-10 h-10 bg-rose-600 rounded-full flex items-center justify-center text-white shrink-0 shadow-md">
+            <Camera className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 leading-tight">
+              Mulheres e amigos não conseguem te ver!
+            </h4>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+              Adicione sua foto para aumentar as suas chances de receber uma resposta.
+            </p>
+          </div>
+          <Link
+            to="/profile-details"
+            className="px-3 py-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300 text-xs font-extrabold rounded-xl border border-rose-200/80 dark:border-rose-800/80 shrink-0 hover:bg-rose-100 transition-colors"
+          >
+            Adicionar
+          </Link>
+        </div>
+      )}
+
       {/* Emoticons Panel */}
       {showEmojiPicker && (
         <div className="bg-white border-t border-slate-200 p-3 shrink-0 grid grid-cols-7 gap-2 shadow-inner max-h-36 overflow-y-auto animate-fadeIn">
@@ -1523,98 +1693,186 @@ export default function ChatRoom() {
             </div>
           </div>
         ) : (
-          /* Normal Send Box */
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-            {/* 2x2 Grid of 4 Action Icons */}
-            <div className="grid grid-cols-2 gap-1.5 shrink-0">
-              <button 
-                type="button" 
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${showEmojiPicker ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' : 'bg-slate-50 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 border border-slate-200'}`}
-                title="Inserir emoticon"
+          /* Normal Send Box with Quick Action Pills & Stickers */
+          <div className="flex flex-col gap-2">
+            {/* Quick Actions Bar: Saudações | Presentes | Stickers */}
+            <div className="flex items-center gap-2 px-0.5 overflow-x-auto no-scrollbar py-0.5">
+              {/* Saudações Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGreetingsModal(true);
+                  setShowStickerTray(false);
+                  setShowEmojiPicker(false);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 shrink-0 cursor-pointer shadow-xs active:scale-95"
               >
-                <Smile className="w-5 h-5" />
+                <span className="text-sm">👋</span>
+                <span>Saudações</span>
               </button>
+
+              {/* Presentes Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGiftsModal(true);
+                  setShowStickerTray(false);
+                  setShowEmojiPicker(false);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 shrink-0 cursor-pointer shadow-xs active:scale-95"
+              >
+                <Gift className="w-3.5 h-3.5 text-rose-500" />
+                <span>Presentes</span>
+              </button>
+
+              {/* Stickers Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStickerTray(!showStickerTray);
+                  setShowEmojiPicker(false);
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 cursor-pointer shadow-xs active:scale-95 ${
+                  showStickerTray 
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-md' 
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700'
+                }`}
+              >
+                <Smile className="w-3.5 h-3.5" />
+                <span>Stickers</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+              {/* 2x2 Grid of 4 Action Icons */}
+              <div className="grid grid-cols-2 gap-1.5 shrink-0">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setShowEmojiPicker(!showEmojiPicker);
+                    setShowStickerTray(false);
+                  }}
+                  className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${showEmojiPicker ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' : 'bg-slate-50 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 border border-slate-200'}`}
+                  title="Inserir emoticon"
+                >
+                  <Smile className="w-5 h-5" />
+                </button>
+                
+                <button 
+                  type="button" 
+                  onClick={triggerPhotoSelect}
+                  className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-pink-500 hover:bg-pink-50 rounded-xl border border-slate-200 hover:border-pink-200 transition-all"
+                  title="Enviar foto"
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={triggerVideoSelect}
+                  className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl border border-slate-200 hover:border-sky-200 transition-all"
+                  title="Enviar vídeo"
+                >
+                  <Video className="w-5 h-5" />
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={startRecording}
+                  className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl border border-slate-200 hover:border-red-200 transition-all"
+                  title="Gravar áudio"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+              </div>
               
-              <button 
-                type="button" 
-                onClick={triggerPhotoSelect}
-                className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-pink-500 hover:bg-pink-50 rounded-xl border border-slate-200 hover:border-pink-200 transition-all"
-                title="Enviar foto"
-              >
-                <Camera className="w-5 h-5" />
-              </button>
-
-              <button 
-                type="button" 
-                onClick={triggerVideoSelect}
-                className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-sky-500 hover:bg-sky-50 rounded-xl border border-slate-200 hover:border-sky-200 transition-all"
-                title="Enviar vídeo"
-              >
-                <Video className="w-5 h-5" />
-              </button>
-
-              <button 
-                type="button" 
-                onClick={startRecording}
-                className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl border border-slate-200 hover:border-red-200 transition-all"
-                title="Gravar áudio"
-              >
-                <Mic className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Hidden Input Selectors */}
-            <input 
-              type="file" 
-              ref={fileInputRef}
-              onChange={handleVideoSelect}
-              accept="video/*" 
-              className="hidden" 
-            />
-            <input 
-              type="file" 
-              ref={photoInputRef}
-              onChange={handlePhotoSelect}
-              accept="image/*" 
-              className="hidden" 
-            />
-
-            {/* Expanded Textarea proportional to the two lines */}
-            <div className="flex-1 bg-slate-100 rounded-2xl border border-slate-200 overflow-hidden flex items-stretch h-[78px]">
-              <textarea 
-                value={newMessage}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setNewMessage(val);
-                  if (val.trim() === '') {
-                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-                    setMyTypingStatus(false);
-                  } else {
-                    handleTyping();
-                  }
-                }}
-                placeholder="Mensagem..."
-                className="w-full h-full bg-transparent text-sm py-2 px-3 resize-none focus:outline-none text-slate-800"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage(e as any);
-                  }
-                }}
+              {/* Hidden Input Selectors */}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleVideoSelect}
+                accept="video/*" 
+                className="hidden" 
               />
-            </div>
-            
-            {/* Submit Button */}
-            <button 
-              type="submit" 
-              disabled={!newMessage.trim()}
-              className="w-12 h-[78px] flex items-center justify-center bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 disabled:opacity-50 disabled:bg-slate-200 transition-colors shrink-0 shadow-md cursor-pointer"
-              title="Enviar mensagem"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
+              <input 
+                type="file" 
+                ref={photoInputRef}
+                onChange={handlePhotoSelect}
+                accept="image/*" 
+                className="hidden" 
+              />
+
+              {/* Expanded Textarea proportional to the two lines */}
+              <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex items-stretch h-[78px]">
+                <textarea 
+                  value={newMessage}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewMessage(val);
+                    if (val.trim() === '') {
+                      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                      setMyTypingStatus(false);
+                    } else {
+                      handleTyping();
+                    }
+                  }}
+                  placeholder="Digite uma mensagem..."
+                  className="w-full h-full bg-transparent text-sm py-2 px-3 resize-none focus:outline-none text-slate-800 dark:text-slate-100"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage(e as any);
+                    }
+                  }}
+                />
+              </div>
+              
+              {/* Submit Button */}
+              <button 
+                type="submit" 
+                disabled={!newMessage.trim()}
+                className="w-12 h-[78px] flex items-center justify-center bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 disabled:opacity-50 disabled:bg-slate-200 dark:disabled:bg-slate-800 transition-colors shrink-0 shadow-md cursor-pointer"
+                title="Enviar mensagem"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            </form>
+
+            {/* Stickers Panel matching screenshot 1 and 2 */}
+            {showStickerTray && (
+              <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 pt-3.5 shrink-0 shadow-inner max-h-64 overflow-y-auto animate-fadeIn mt-1 rounded-2xl">
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    SMILEYS
+                  </span>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowStickerTray(false)}
+                    className="text-[11px] font-extrabold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    Fechar ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-4 gap-3 sm:gap-4 p-1">
+                  {STICKERS.map((stk, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        sendMediaMessage('sticker', stk.emoji);
+                      }}
+                      className="flex flex-col items-center justify-center p-3 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-750 active:scale-90 rounded-2xl border border-slate-200/70 dark:border-slate-700/70 shadow-xs hover:shadow-md transition-all cursor-pointer group"
+                      title={stk.label}
+                    >
+                      <span className="text-3xl sm:text-4xl group-hover:scale-120 transition-transform duration-150 drop-shadow-xs select-none">
+                        {stk.emoji}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -1637,11 +1895,19 @@ export default function ChatRoom() {
             {/* Message Preview */}
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
               <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">
-                Tipo: {selectedMessage.type === 'text' ? 'Texto' : selectedMessage.type === 'emoticon' ? 'Emoticon' : selectedMessage.type === 'audio' ? 'Mensagem de Áudio' : selectedMessage.type === 'video' ? 'Mensagem de Vídeo' : selectedMessage.type === 'photo' ? 'Foto' : 'Mensagem'}
+                Tipo: {selectedMessage.type === 'text' ? 'Texto' : selectedMessage.type === 'emoticon' ? 'Emoticon' : selectedMessage.type === 'sticker' ? 'Sticker' : selectedMessage.type === 'saudacao' ? 'Saudação' : selectedMessage.type === 'presente' ? 'Presente Virtual' : selectedMessage.type === 'audio' ? 'Mensagem de Áudio' : selectedMessage.type === 'video' ? 'Mensagem de Vídeo' : selectedMessage.type === 'photo' ? 'Foto' : 'Mensagem'}
               </span>
               <div className="text-slate-700 text-sm font-medium">
                 {selectedMessage.type === 'text' && selectedMessage.text}
                 {selectedMessage.type === 'emoticon' && <span className="text-3xl">{selectedMessage.text}</span>}
+                {selectedMessage.type === 'sticker' && <span className="text-5xl">{selectedMessage.text}</span>}
+                {selectedMessage.type === 'saudacao' && <span className="italic font-medium">"{selectedMessage.text}"</span>}
+                {selectedMessage.type === 'presente' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-3xl">{(selectedMessage.text || '').split('|')[1] || '🎁'}</span>
+                    <span className="font-bold">{(selectedMessage.text || '').split('|')[0] || 'Presente'}</span>
+                  </div>
+                )}
                 {selectedMessage.type === 'audio' && <span className="flex items-center gap-2 text-indigo-600"><Mic className="w-4 h-4" /> Áudio gravado</span>}
                 {selectedMessage.type === 'video' && <span className="flex items-center gap-2 text-sky-600"><Video className="w-4 h-4" /> Vídeo gravado/enviado</span>}
                 {selectedMessage.type === 'photo' && (
@@ -1738,8 +2004,12 @@ export default function ChatRoom() {
             <div className="bg-slate-50 rounded-xl p-3.5 text-xs text-slate-600 border border-slate-100 italic max-h-24 overflow-y-auto">
               {messageToDelete.type === 'text' && `"${messageToDelete.text}"`}
               {messageToDelete.type === 'emoticon' && `Emoticon: ${messageToDelete.text}`}
+              {messageToDelete.type === 'sticker' && `Sticker: ${messageToDelete.text}`}
+              {messageToDelete.type === 'saudacao' && `Saudação: "${messageToDelete.text}"`}
+              {messageToDelete.type === 'presente' && `Presente: ${(messageToDelete.text || '').split('|')[0]}`}
               {messageToDelete.type === 'audio' && "Mensagem de Áudio"}
               {messageToDelete.type === 'video' && "Mensagem de Vídeo"}
+              {messageToDelete.type === 'photo' && "Foto"}
             </div>
 
             <div className="flex flex-col gap-2">
@@ -2034,6 +2304,113 @@ export default function ChatRoom() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Saudações Modal matching screenshots 3 and 5 */}
+      {showGreetingsModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 space-y-4 animate-scaleIn shadow-2xl border border-slate-100 dark:border-slate-800 relative">
+            <button 
+              onClick={() => setShowGreetingsModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Green circular checkmark at top */}
+            <div className="w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 mx-auto mt-2 mb-1">
+              <Check className="w-7 h-7 stroke-[3]" />
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="font-black text-slate-900 dark:text-white text-base sm:text-lg leading-snug px-2">
+                Agora escolha a mensagem que você mais gosta para iniciar essa conversa!
+              </h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 font-semibold text-left pt-1">
+                Saldo: 0
+              </p>
+            </div>
+
+            {/* List of 3 greeting options */}
+            <div className="space-y-2.5">
+              {(() => {
+                const allG = getGreetingsList(friendProfile?.nome || '');
+                const current3 = [
+                  allG[(greetingOffset) % allG.length],
+                  allG[(greetingOffset + 1) % allG.length],
+                  allG[(greetingOffset + 2) % allG.length],
+                ];
+                return current3.map((greet, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      sendMediaMessage('saudacao', greet);
+                      setShowGreetingsModal(false);
+                    }}
+                    className="w-full text-left p-3.5 sm:p-4 bg-slate-50 hover:bg-indigo-50/70 dark:bg-slate-800/60 dark:hover:bg-indigo-950/40 border border-slate-200/80 hover:border-indigo-300 dark:border-slate-700/80 dark:hover:border-indigo-600/60 rounded-2xl text-xs sm:text-[13px] font-semibold text-slate-700 dark:text-slate-200 leading-relaxed shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    {greet}
+                  </button>
+                ));
+              })()}
+            </div>
+
+            {/* Rotate / create more options button */}
+            <button
+              type="button"
+              onClick={() => setGreetingOffset(prev => prev + 3)}
+              className="w-full pt-1 flex items-center justify-center gap-1.5 text-xs font-black text-slate-600 hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Crie mais opções</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Presentes Modal */}
+      {showGiftsModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 space-y-4 animate-scaleIn shadow-2xl border border-slate-100 dark:border-slate-800 relative">
+            <button 
+              onClick={() => setShowGiftsModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-1 mt-1">
+              <div className="w-12 h-12 bg-rose-50 dark:bg-rose-950/50 rounded-2xl flex items-center justify-center text-rose-500 mx-auto shadow-inner border border-rose-100 dark:border-rose-900/40">
+                <Gift className="w-6 h-6" />
+              </div>
+              <h3 className="font-black text-slate-900 dark:text-white text-base">
+                Enviar um Presente Virtual
+              </h3>
+              <p className="text-xs text-slate-400">
+                Surpreenda {friendProfile?.nome ? friendProfile.nome.split(' ')[0] : 'seu amigo'} com um mimo especial!
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto p-1">
+              {GIFTS.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => {
+                    sendMediaMessage('presente', `${g.name}|${g.emoji}|${g.description}`);
+                    setShowGiftsModal(false);
+                  }}
+                  className="flex flex-col items-center text-center p-3 bg-slate-50 dark:bg-slate-800/60 hover:bg-rose-50/60 dark:hover:bg-rose-950/30 border border-slate-200/80 hover:border-rose-300 dark:border-slate-700/80 rounded-2xl transition-all active:scale-95 cursor-pointer shadow-xs"
+                >
+                  <span className="text-3xl mb-1">{g.emoji}</span>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight">{g.name}</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 line-clamp-1 mt-0.5">{g.description}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

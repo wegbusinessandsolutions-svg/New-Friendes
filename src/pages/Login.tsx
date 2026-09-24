@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { Camera, X, Shield, ShieldCheck, AlertCircle, Check, KeyRound } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { generateUserRegistrationId } from '../utils/userId';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(true);
@@ -110,7 +111,28 @@ export default function Login() {
         auth.languageCode = 'pt';
         sessionStorage.setItem('just_logged_in', 'true');
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await sendEmailVerification(userCredential.user);
+        
+        // Regra do ID do Usuário: Data(DDMMAA) + Hora(HHMMSS)
+        const userRegId = generateUserRegistrationId();
+        sessionStorage.setItem('temp_user_reg_id', userRegId);
+        try {
+          const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+          await setDoc(doc(db, 'users', userCredential.user.uid), {
+            codigoUsuario: userRegId,
+            idNumerico: userRegId,
+            email: email,
+            criadoEm: Date.now(),
+            createdAt: serverTimestamp()
+          }, { merge: true });
+        } catch (dbErr) {
+          console.error("Erro ao salvar ID de registro do usuário:", dbErr);
+        }
+
+        try {
+          await sendEmailVerification(userCredential.user);
+        } catch (emailErr) {
+          console.warn("Aviso ao disparar e-mail de confirmação pelo Firebase:", emailErr);
+        }
       } else {
         sessionStorage.setItem('just_logged_in', 'true');
         await signInWithEmailAndPassword(auth, email, password);

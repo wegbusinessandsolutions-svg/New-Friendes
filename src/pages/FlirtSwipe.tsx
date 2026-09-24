@@ -33,6 +33,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { getDemonym } from '../lib/demonyms';
 import { MOCK_USERS, NearbyUser } from './Discover';
+import ZodiacBadge from '../components/ZodiacBadge';
 
 // Custom objectives for dating app fidelity
 const OBJECTIVES = [
@@ -731,10 +732,11 @@ export default function FlirtSwipe() {
 
               {/* Info Overlay Content */}
               <div className="p-5 pb-6 text-white z-20 relative flex flex-col gap-2 pointer-events-auto">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-2xl font-black tracking-tight drop-shadow-md">
                     {currentProfile.profile.nome || currentProfile.profile.apelido}, {currentProfile.profile.idade}
                   </h3>
+                  <ZodiacBadge user={currentProfile} variant="pill" />
                   {(currentProfile.idVerified || currentProfile.profile.verified) && (
                     <CheckCircle className="w-5 h-5 text-sky-400 fill-white shrink-0 shadow-sm" aria-label="Perfil verificado com IA" />
                   )}

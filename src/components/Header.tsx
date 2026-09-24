@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, matchPath } from 'react-router-dom';
-import { LogOut, User, ChevronDown, Sun, Moon, Laptop, HelpCircle, Siren, Users, Phone, Check, Loader2, ShieldAlert, Sparkles, MapPin, Calendar, X } from 'lucide-react';
+import { LogOut, User, ChevronDown, HelpCircle, Siren, Users, Phone, Check, Loader2, ShieldAlert, Sparkles, MapPin, Calendar, X, MessageSquare } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { MOCK_USERS } from '../pages/Discover';
-import { useTheme } from '../lib/theme';
+import { openNativeSms } from '../utils/sms';
 
 interface HeaderProps {
   onStartTour?: () => void;
@@ -13,7 +13,6 @@ interface HeaderProps {
 
 export default function Header({ onStartTour }: HeaderProps) {
   const location = useLocation();
-  const { theme, setTheme } = useTheme();
   const [myProfile, setMyProfile] = useState<any>(null);
   const [viewedProfile, setViewedProfile] = useState<any>(null);
   const [viewedUserDistanceValue, setViewedUserDistanceValue] = useState<number | null>(null);
@@ -21,16 +20,6 @@ export default function Header({ onStartTour }: HeaderProps) {
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState(false);
   const [searchRadius, setSearchRadius] = useState<number>(50000);
   const [appTitle, setAppTitle] = useState('New Friends.br');
-
-  const cycleTheme = () => {
-    if (theme === 'light') {
-      setTheme('dark');
-    } else if (theme === 'dark') {
-      setTheme('system');
-    } else {
-      setTheme('light');
-    }
-  };
 
   // Listen to custom app title
   useEffect(() => {
@@ -190,7 +179,7 @@ export default function Header({ onStartTour }: HeaderProps) {
       if (matchedMock) {
         statusBolinha = getMockStatusBolinha(viewedId);
         const dist = matchedMock.distanceValue || 0;
-        if (dist > 50000) {
+        if (dist > 500000) {
           isOffline = true;
         } else if (dist > searchRadius) {
           isOutOfRange = true;
@@ -198,7 +187,7 @@ export default function Header({ onStartTour }: HeaderProps) {
       } else if (viewedProfile) {
         statusBolinha = viewedProfile.profile?.statusBolinha || 'disponivel';
         if (viewedUserDistanceValue !== null) {
-          if (viewedUserDistanceValue > 50000) {
+          if (viewedUserDistanceValue > 500000) {
             isOffline = true;
           } else if (viewedUserDistanceValue > searchRadius) {
             isOutOfRange = true;
@@ -369,7 +358,7 @@ export default function Header({ onStartTour }: HeaderProps) {
     const dateTimeStr = `${day}/${month}/${year} às ${hours}:${minutes}:${seconds}`;
 
     const locationUrl = coords 
-      ? `https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=17/${coords.lat}/${coords.lng}`
+      ? `https://maps.google.com/?q=${coords.lat},${coords.lng}`
       : 'Localização atual indisponível';
 
     const toTitleCase = (str: string | undefined | null) => {
@@ -384,18 +373,18 @@ export default function Header({ onStartTour }: HeaderProps) {
     const pAltura = myProfile?.profile?.altura ? (myProfile.profile.altura.toString().includes('m') ? myProfile.profile.altura : `${myProfile.profile.altura}m`) : 'Não informado';
     const pCor = toTitleCase(myProfile?.profile?.cor);
 
-    // Construct exactly requested text
-    const msg = `Olá, eu estou passando por uma situação de emergência, vou te enviar minha localização de 3 em 3 minutos, peço que entre em contato com a polícia para que possam me ajudar. Atenção: A pessoa que está ao meu lado não sabe que acionei o botão do pânico então não me ligue no momento. Apenas peço que acione a polícia e repasse os dados abaixo:
+    // Mensagem resumida e direta para SMS via operadora de celular (sem depender de internet)
+    const msg = `🚨 SOS EMERGÊNCIA!
+Estou em perigo e preciso de socorro. Acione a polícia agora (190)! NÃO ME LIGUE no momento para não me comprometer.
 
-Meus Dados - App NewFriends.br:
-- Nome completo: ${pNome}
-- Idade: ${pIdade}
-- Sexo: ${pSexo}
-- Altura: ${pAltura}
-- Cor: ${pCor}
+Localização em tempo real:
+${locationUrl}
 
-Localização atual: ${locationUrl}
-Data / horas: ${dateTimeStr}`;
+Dados da Vítima:
+- Nome: ${pNome}
+- Idade: ${pIdade} | Sexo: ${pSexo}
+- Altura: ${pAltura} | Cor: ${pCor}
+Horário: ${dateTimeStr}`;
 
     setFormattedMessage(msg);
   };
@@ -413,6 +402,7 @@ Data / horas: ${dateTimeStr}`;
         coordinates: sosLocation,
         emergencyContact: selectedFriend,
         messageText: formattedMessage,
+        canalEnvio: 'sms_operadora',
         status: 'active'
       });
 
@@ -425,21 +415,12 @@ Data / horas: ${dateTimeStr}`;
       // Trigger local storage event
       window.dispatchEvent(new Event('storage'));
 
-      // Clean WhatsApp phone number and generate waUrl
-      let cleanPhone = selectedFriend.telefone.replace(/\D/g, '');
-      if (cleanPhone.length === 11 || cleanPhone.length === 10) {
-        cleanPhone = '55' + cleanPhone;
-      }
-      const encodedMsg = encodeURIComponent(formattedMessage);
-      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
-      
-      // Open WhatsApp link
-      window.open(waUrl, '_blank');
+      // Disparar aplicativo nativo de SMS da operadora celular (funciona sem internet)
+      openNativeSms(selectedFriend.telefone, formattedMessage);
       
       setIsSosModalOpen(false);
     } catch (err) {
       console.error("Error triggering SOS send:", err);
-      alert("Erro ao salvar alerta. O WhatsApp será aberto mesmo assim.");
       
       localStorage.setItem('sos_tracking_active', 'true');
       localStorage.setItem('sos_contact_phone', selectedFriend.telefone);
@@ -447,13 +428,9 @@ Data / horas: ${dateTimeStr}`;
       setIsSosTrackingActive(true);
       window.dispatchEvent(new Event('storage'));
 
-      let cleanPhone = selectedFriend.telefone.replace(/\D/g, '');
-      if (cleanPhone.length === 11 || cleanPhone.length === 10) {
-        cleanPhone = '55' + cleanPhone;
-      }
-      const encodedMsg = encodeURIComponent(formattedMessage);
-      const waUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMsg}`;
-      window.open(waUrl, '_blank');
+      // Abre o SMS mesmo em caso de erro no salvamento do banco
+      openNativeSms(selectedFriend.telefone, formattedMessage);
+      setIsSosModalOpen(false);
     } finally {
       setIsSendingHelp(false);
     }
@@ -480,28 +457,78 @@ Data / horas: ${dateTimeStr}`;
 
   const statusInfo = getStatusDetails();
 
+  // Verification status checks for the current user
+  const isEmailVerified = Boolean(
+    auth.currentUser?.emailVerified ||
+    myProfile?.emailVerified ||
+    myProfile?.verified ||
+    myProfile?.profile?.emailVerified ||
+    myProfile?.profile?.verified
+  );
+  const isIdVerified = Boolean(myProfile?.idVerified || myProfile?.profile?.idVerified);
+  const isFacialVerified = Boolean(myProfile?.facialVerified || myProfile?.profile?.facialVerified);
+  const hasProfilePhoto = Boolean(myProfile?.profile?.fotoPrincipalUrl);
+
+  const hasPendingVerifications = !isEmailVerified || !isIdVerified || !isFacialVerified || !hasProfilePhoto;
+
   return (
     <>
-      <header className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 sticky top-0 z-40 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white dark:bg-slate-950 rounded-lg flex items-center justify-center shadow-md border border-slate-100 dark:border-slate-800">
-            <div className="w-4 h-4 border-[3px] border-indigo-600 dark:border-indigo-500 rounded-full flex items-center justify-center">
-              <div className="w-1.5 h-1.5 bg-indigo-600 dark:bg-indigo-500 rounded-full"></div>
+      <header className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 sm:p-4 sticky top-0 z-40 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          {/* User Icon on Top Left Corner with Verification State Indicator Badge */}
+          <Link 
+            id="tour-profile-btn"
+            to={`/profile/${auth.currentUser?.uid}`} 
+            className="relative flex items-center justify-center rounded-full transition-all active:scale-95 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0"
+            title={hasPendingVerifications ? "Meu Perfil (Verificações Pendentes!)" : "Meu Perfil (Todas as Verificações Cumpridas)"}
+          >
+            <div className="w-9 h-9 rounded-full border-2 border-indigo-600 dark:border-indigo-500 flex items-center justify-center bg-white dark:bg-slate-950 p-[2px] shadow-sm">
+              <div className="w-full h-full rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center">
+                {myProfile?.profile?.fotoPrincipalUrl ? (
+                  <img 
+                    src={myProfile.profile.fotoPrincipalUrl} 
+                    alt="Eu" 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <User className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
+                )}
+              </div>
             </div>
-          </div>
-          <h1 className="text-lg font-semibold tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-4 font-friendly">
-            <span>
-              {appTitle.split(/(\.br| br)/i).map((part, index) => {
-                if (part.toLowerCase() === '.br' || part.toLowerCase() === ' br') {
-                  return <span key={index} className="text-emerald-500">{part}</span>;
-                }
-                return part;
-              })}
-            </span>
-            <img src="https://flagcdn.com/w40/br.png" alt="Brasil" className="w-6 h-auto rounded-sm object-cover" />
-          </h1>
-        </Link>
-          <div className="flex items-center gap-2">
+
+            {/* Over the user icon in the top left corner:
+                Red pulsing circle when pending verifications exist,
+                Green circle when all verifications are fulfilled! */}
+            <span 
+              className={`absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 shadow-md transition-all ${
+                hasPendingVerifications 
+                  ? 'bg-rose-500 animate-pulse ring-2 ring-rose-400/80 shadow-rose-500/50' 
+                  : 'bg-emerald-500 ring-2 ring-emerald-400/80 shadow-emerald-500/30'
+              }`}
+              title={
+                hasPendingVerifications 
+                  ? 'Possui verificações pendentes (Clique para completar no Perfil)' 
+                  : 'Todas as verificações foram cumpridas com sucesso!'
+              }
+            />
+          </Link>
+
+          <Link to="/" className="flex items-center gap-2 min-w-0">
+            <h1 className="text-base sm:text-lg font-semibold tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-2 font-friendly truncate">
+              <span className="truncate">
+                {appTitle.split(/(\.br| br)/i).map((part, index) => {
+                  if (part.toLowerCase() === '.br' || part.toLowerCase() === ' br') {
+                    return <span key={index} className="text-emerald-500">{part}</span>;
+                  }
+                  return part;
+                })}
+              </span>
+              <img src="https://flagcdn.com/w40/br.png" alt="Brasil" className="w-5 h-auto rounded-sm object-cover shrink-0" />
+            </h1>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Quick Help / Panic Button */}
           <button
             onClick={handleQuickHelp}
@@ -531,23 +558,6 @@ Data / horas: ${dateTimeStr}`;
             title="Ver Tour de Boas-Vindas"
           >
             <HelpCircle className="w-5 h-5 text-indigo-550 dark:text-indigo-400" />
-          </button>
-
-          {/* Theme Cycle Toggle Button */}
-          <button
-            onClick={cycleTheme}
-            className="hidden sm:flex p-2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-full transition-colors items-center justify-center"
-            title={
-              theme === 'light'
-                ? 'Tema Claro (Clique para mudar para Escuro)'
-                : theme === 'dark'
-                ? 'Tema Escuro (Clique para mudar para do Sistema)'
-                : 'Tema do Sistema (Clique para mudar para Claro)'
-            }
-          >
-            {theme === 'light' && <Sun className="w-5 h-5 text-amber-500" />}
-            {theme === 'dark' && <Moon className="w-5 h-5 text-indigo-400" />}
-            {theme === 'system' && <Laptop className="w-5 h-5 text-slate-400" />}
           </button>
 
           {/* Status Indicator Dot (Bolinha) */}
@@ -621,29 +631,7 @@ Data / horas: ${dateTimeStr}`;
             )}
           </div>
 
-          {/* Eu (Me) Button */}
-          <Link 
-            id="tour-profile-btn"
-            to={`/profile/${auth.currentUser?.uid}`} 
-            className="relative flex items-center justify-center rounded-full transition-all active:scale-95 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 shrink-0"
-            title="Meu Perfil"
-          >
-            <div className="w-8 h-8 rounded-full border-2 border-indigo-600 dark:border-indigo-500 flex items-center justify-center bg-white dark:bg-slate-950 p-[2px] shadow-sm">
-              <div className="w-full h-full rounded-full overflow-hidden bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center">
-                {myProfile?.profile?.fotoPrincipalUrl ? (
-                  <img 
-                    src={myProfile.profile.fotoPrincipalUrl} 
-                    alt="Eu" 
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <User className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                )}
-              </div>
-            </div>
-          </Link>
-
-          <button onClick={handleSignOut} className="p-2 -mr-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-full transition-colors" title="Sair">
+          <button onClick={handleSignOut} className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 rounded-full transition-colors" title="Sair">
             <LogOut className="w-5 h-5" />
           </button>
         </div>
@@ -816,14 +804,14 @@ Data / horas: ${dateTimeStr}`;
 
                     <div>
                       <label className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">
-                        Número do WhatsApp (com DDD)
+                        Número de Celular para SMS (com DDD)
                       </label>
                       <input
                         type="tel"
                         value={manualPhone}
                         onChange={(e) => setManualPhone(e.target.value)}
                         placeholder="Ex: 11 99999-9999"
-                        className="w-full text-xs font-semibold p-2.5 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-150"
+                        className="w-full text-xs font-semibold p-2.5 bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-850 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-slate-800 dark:text-slate-150"
                       />
                     </div>
                   </div>
@@ -855,10 +843,10 @@ Data / horas: ${dateTimeStr}`;
                   <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                   <div>
                     <h4 className="text-[11px] font-black text-red-800 dark:text-red-400 uppercase tracking-wider">
-                      Confirmação de Envio
+                      Confirmação de Envio (SMS Operadora)
                     </h4>
                     <p className="text-[10px] text-red-700 dark:text-red-300 font-semibold leading-relaxed mt-0.5">
-                      Você está prestes a alertar o contato <strong className="text-red-900 dark:text-white font-extrabold">{selectedFriend?.nome} ({selectedFriend?.telefone})</strong>.
+                      Você está prestes a alertar por SMS o contato <strong className="text-red-900 dark:text-white font-extrabold">{selectedFriend?.nome} ({selectedFriend?.telefone})</strong> via operadora celular.
                     </p>
                   </div>
                 </div>
@@ -876,11 +864,11 @@ Data / horas: ${dateTimeStr}`;
                 ) : (
                   <div className="space-y-2">
                     <label className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
-                      Visualização do Texto da Mensagem (WhatsApp)
+                      Visualização da Mensagem Resumida (SMS Operadora)
                     </label>
-                    <div className="w-full bg-emerald-50/40 dark:bg-slate-950 text-slate-700 dark:text-slate-300 p-4 rounded-2xl border border-emerald-100 dark:border-slate-800 text-[10.5px] font-medium leading-relaxed whitespace-pre-line overflow-y-auto max-h-56 custom-scrollbar shadow-inner relative">
-                      <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider">
-                        SOS WhatsApp
+                    <div className="w-full bg-rose-50/40 dark:bg-slate-950 text-slate-700 dark:text-slate-300 p-4 rounded-2xl border border-rose-100 dark:border-slate-800 text-[10.5px] font-medium leading-relaxed whitespace-pre-line overflow-y-auto max-h-56 custom-scrollbar shadow-inner relative">
+                      <div className="absolute top-2 right-2 bg-rose-600 text-white rounded px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider flex items-center gap-1">
+                        <MessageSquare className="w-2.5 h-2.5" /> SMS Operadora
                       </div>
                       {formattedMessage}
                     </div>
@@ -897,13 +885,13 @@ Data / horas: ${dateTimeStr}`;
                   <button
                     disabled={loadingLocation || isSendingHelp}
                     onClick={handleConfirmSendSOS}
-                    className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-lg shadow-emerald-500/10 active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-45"
+                    className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl text-xs transition-all shadow-lg shadow-rose-500/10 active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-45"
                   >
                     {isSendingHelp ? (
                       <Loader2 className="w-4 h-4 animate-spin text-white" />
                     ) : (
                       <>
-                        <Check className="w-4 h-4" /> Enviar SOS
+                        <MessageSquare className="w-4 h-4" /> Enviar SMS de Emergência
                       </>
                     )}
                   </button>

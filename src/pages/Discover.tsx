@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import CachedLazyImage from '../components/CachedLazyImage';
+import ZodiacBadge from '../components/ZodiacBadge';
 
-import { MapPin, SlidersHorizontal, Flame, UserPlus, Users, ChevronDown, CheckCircle, X, ShieldCheck, Search, Tag, Filter, Ban, Heart, MessageCircle } from 'lucide-react';
+import { MapPin, SlidersHorizontal, Flame, UserPlus, Users, ChevronDown, CheckCircle, X, ShieldCheck, BadgeCheck, Search, Tag, Filter, Ban, Heart, MessageCircle, Calendar, Check } from 'lucide-react';
 import { doc, setDoc, updateDoc, serverTimestamp, getDoc, collection, query, onSnapshot, addDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -21,21 +22,21 @@ export interface NearbyUser {
 export const MOCK_USERS: NearbyUser[] = [
   {
     userId: 'mock1',
-    distance: '150m',
-    distanceValue: 150,
+    distance: '45m',
+    distanceValue: 45,
     idVerified: true,
     profile: { nome: 'Ana', apelido: 'Aninha', idade: 25, sexo: 'feminino', bio: 'Adoro viajar e conhecer pessoas novas!', estadoNascimento: 'Goiás', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&q=80', facialVerified: true, verified: true, hobbies: ['Viagens', 'Fotografia', 'Música'] }
   },
   {
     userId: 'mock2',
-    distance: '300m',
-    distanceValue: 300,
+    distance: '85m',
+    distanceValue: 85,
     profile: { nome: 'Carlos', apelido: 'Carlinhos', idade: 28, sexo: 'masculino', bio: 'Bora tomar uma?', estadoNascimento: 'Mato Grosso', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&q=80', hobbies: ['Futebol', 'Churrasco', 'Cerveja'] }
   },
   {
     userId: 'mock3',
-    distance: '450m',
-    distanceValue: 450,
+    distance: '250m',
+    distanceValue: 250,
     idVerified: true,
     profile: { nome: 'Beatriz', apelido: 'Bia', idade: 31, sexo: 'feminino', bio: 'Sempre em busca de boas risadas', estadoNascimento: 'Mato Grosso do Sul', fotoPrincipalUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80', facialVerified: true, hobbies: ['Cinema', 'Livros', 'Café'] }
   },
@@ -169,7 +170,8 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
 
   const [radius, setRadius] = useState<number>(() => {
     const saved = localStorage.getItem('search_radius');
-    return saved ? Number(saved) : 5000;
+    const parsed = saved ? Number(saved) : 5000;
+    return parsed > 500000 ? 500000 : parsed;
   });
   const [genderFilter, setGenderFilter] = useState('todos');
   const [ageFilter, setAgeFilter] = useState('todos');
@@ -210,7 +212,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
     if (u.status === 'offline') {
       return 'bg-slate-400'; // Gray (Offline)
     }
-    if (u.distanceValue !== undefined && u.distanceValue > 50000 && u.distanceValue !== Infinity) {
+    if (u.distanceValue !== undefined && u.distanceValue > 500000 && u.distanceValue !== Infinity) {
       return 'bg-slate-400'; // Gray (Offline / Fora do limite do app)
     }
     if (u.distanceValue !== undefined && u.distanceValue > radius && u.distanceValue !== Infinity) {
@@ -229,7 +231,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
     if (u.status === 'offline') {
       return 'Offline';
     }
-    if (u.distanceValue !== undefined && u.distanceValue > 50000 && u.distanceValue !== Infinity) {
+    if (u.distanceValue !== undefined && u.distanceValue > 500000 && u.distanceValue !== Infinity) {
       return 'Offline';
     }
     if (u.distanceValue !== undefined && u.distanceValue > radius && u.distanceValue !== Infinity) {
@@ -591,12 +593,67 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
     return () => unsubscribe();
   }, [currentUser]);
 
+  // Marcos de distância solicitados:
+  // 50 Metros, 100 Metros, 200 Metros, 300 Metros, 500 Metros, 1 Km, 3 Km, 5 Km, 10 Km, 20 Km, 50 Km, 100 Km, 200 Km, 500 Km
   const radiusOptions = [
     50,
-    ...Array.from({ length: 20 }, (_, i) => (i + 1) * 100),
-    2500,
-    ...Array.from({ length: 48 }, (_, i) => (i + 3) * 1000)
+    100,
+    200,
+    300,
+    500,
+    1000,
+    3000,
+    5000,
+    10000,
+    20000,
+    50000,
+    100000,
+    200000,
+    500000
   ];
+
+  const getRadiusIndex = (val: number): number => {
+    const idx = radiusOptions.indexOf(val);
+    if (idx !== -1) return idx;
+    let closestIdx = 0;
+    let minDiff = Infinity;
+    radiusOptions.forEach((opt, i) => {
+      const diff = Math.abs(opt - val);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = i;
+      }
+    });
+    return closestIdx;
+  };
+
+  const formatDistanceMarkerLabel = (meters: number): string => {
+    if (meters === 50) return '50 Metros';
+    if (meters === 100) return '100 Metros';
+    if (meters === 200) return '200 Metros';
+    if (meters === 300) return '300 Metros';
+    if (meters === 500) return '500 Metros';
+    if (meters === 1000) return '1 Km';
+    if (meters === 3000) return '3 Km';
+    if (meters === 5000) return '5 Km';
+    if (meters === 10000) return '10 Km';
+    if (meters === 20000) return '20 Km';
+    if (meters === 50000) return '50 Km';
+    if (meters === 100000) return '100 Km';
+    if (meters === 200000) return '200 Km';
+    if (meters === 500000) return '500 Km';
+    if (meters >= 1000) {
+      return `${meters / 1000} Km`;
+    }
+    return `${meters} Metros`;
+  };
+
+  const formatDistanceShortLabel = (meters: number): string => {
+    if (meters >= 1000) {
+      return `${meters / 1000}km`;
+    }
+    return `${meters}m`;
+  };
 
   return (
     <div className="flex flex-col font-sans">
@@ -665,7 +722,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
           </div>
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm ${
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm shrink-0 ${
               showAdvancedFilters || genderFilter !== 'todos' || ageFilter !== 'todos' || selectedInterests.length > 0 || radius !== 5000
                 ? 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-850 text-indigo-600 dark:text-indigo-400 font-extrabold'
                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
@@ -677,117 +734,217 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
               <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
             )}
           </button>
+          {/* Indicador sutil de distância ao lado do botão Filtros */}
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors bg-slate-100/90 dark:bg-slate-800/90 px-2.5 py-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 whitespace-nowrap cursor-pointer shadow-2xs shrink-0 flex items-center gap-1"
+            title={`Raio de busca configurado: ${radius >= 1000 ? `${radius / 1000} km` : `${radius} m`} (Clique para alterar)`}
+          >
+            <span className="font-bold text-slate-700 dark:text-slate-300">{radius >= 1000 ? `${radius / 1000} km` : `${radius} m`}</span>
+          </button>
         </div>
 
         {/* Painel de Filtros Avançados Collapsible */}
         {showAdvancedFilters && (
-          <div className="mb-4 bg-slate-50/50 dark:bg-slate-850/40 border border-slate-150 dark:border-slate-800/80 rounded-2xl p-4 space-y-5 animate-fadeIn">
-            {/* Raio de busca */}
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" /> Distância Máxima de Busca (Raio)
+          <div className="mb-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-md space-y-4 animate-fadeIn">
+            {/* 1. Raio de busca com Marcos de Distância */}
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> Distância Máxima (Raio)
                 </span>
-                <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
-                  {tempRadius >= 1000 ? `${tempRadius/1000} km`.replace('.', ',') : `${tempRadius} m`}
+                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-1 rounded-full border border-indigo-150 dark:border-indigo-850 shadow-xs">
+                  {formatDistanceMarkerLabel(tempRadius)}
                 </span>
               </div>
-              <input 
-                type="range" 
-                min="0" 
-                max={radiusOptions.length - 1} 
-                value={radiusOptions.indexOf(tempRadius) !== -1 ? radiusOptions.indexOf(tempRadius) : 0}
-                onChange={(e) => setTempRadius(radiusOptions[Number(e.target.value)])}
-                className="w-full accent-indigo-600 h-1.5 bg-slate-250 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
-              />
-              <div className="relative w-full h-8 mt-1 text-slate-400 dark:text-slate-500 font-medium px-1">
-                {radiusOptions.map((opt, i) => {
-                  const isLabel = [100, 500, 1000, 5000, 10000, 20000, 30000, 40000, 50000].includes(opt);
-                  const leftPercent = (i / (radiusOptions.length - 1)) * 100;
-                  
-                  if (isLabel) {
-                    const text = opt >= 1000 ? `${opt/1000}km`.replace('.', ',') : `${opt}m`;
+
+              {/* Slider com os marcos */}
+              <div className="px-1">
+                <input 
+                  type="range" 
+                  min="0" 
+                  max={radiusOptions.length - 1} 
+                  step="1"
+                  value={getRadiusIndex(tempRadius)}
+                  onChange={(e) => setTempRadius(radiusOptions[Number(e.target.value)])}
+                  className="w-full accent-indigo-600 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                />
+
+                {/* Marcadores visuais no trilho do slider */}
+                <div className="relative w-full h-4 mt-1 px-1">
+                  {radiusOptions.map((opt, i) => {
+                    const leftPercent = (i / (radiusOptions.length - 1)) * 100;
+                    const isSelected = tempRadius === opt;
                     return (
                       <div 
                         key={opt} 
-                        className="absolute top-0 text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" 
-                        style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
+                        className="absolute top-0 -translate-x-1/2 cursor-pointer flex flex-col items-center group" 
+                        style={{ left: `${leftPercent}%` }}
                         onClick={() => setTempRadius(opt)}
+                        title={formatDistanceMarkerLabel(opt)}
                       >
-                        <div className="h-1 w-px bg-slate-300 dark:bg-slate-700 mx-auto"></div>
-                        <span className="block text-[8px] text-slate-500 mt-0.5">{text}</span>
+                        <div className={`w-1 transition-all rounded-full ${
+                          isSelected 
+                            ? 'h-3 bg-indigo-600 dark:bg-indigo-400' 
+                            : 'h-1.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-indigo-400 group-hover:h-2.5'
+                        }`} />
                       </div>
                     );
-                  }
-                  
+                  })}
+                </div>
+              </div>
+
+              {/* Seletor rápido dos Marcos de Distância */}
+              <div className="pt-1">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Marcos de Distância
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Toque para selecionar
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {radiusOptions.map((opt) => {
+                    const isSelected = tempRadius === opt;
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => setTempRadius(opt)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200/50 dark:shadow-none ring-2 ring-indigo-300 dark:ring-indigo-700'
+                            : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750 border-slate-200 dark:border-slate-700'
+                        }`}
+                      >
+                        {formatDistanceMarkerLabel(opt)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Divisor Visual */}
+            <div className="border-t border-slate-200 dark:border-slate-800" />
+
+            {/* 2. Gênero */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> Gênero
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400">
+                  Filtrar por sexo
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'masculino', label: 'Masculino' },
+                  { id: 'feminino', label: 'Feminino' },
+                  { id: 'todos', label: 'Todos' }
+                ].map(gen => {
+                  const isSelected = tempGender === gen.id;
                   return (
-                    <div 
-                      key={opt} 
-                      className="absolute top-0 text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" 
-                      style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
-                      onClick={() => setTempRadius(opt)}
+                    <button
+                      key={gen.id}
+                      type="button"
+                      onClick={() => setTempGender(gen.id)}
+                      className={`py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-300 dark:ring-indigo-700'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+                      }`}
                     >
-                      <span className="block text-slate-300 dark:text-slate-750 font-bold leading-none -mt-1.5">.</span>
-                    </div>
+                      {gen.label}
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Sexo & Idade Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Sexo */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Gênero</span>
-                <div className="flex gap-1.5">
-                  {['todos', 'masculino', 'feminino'].map(gen => (
-                    <button
-                      key={gen}
-                      onClick={() => setTempGender(gen)}
-                      className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg border transition-colors ${
-                        tempGender === gen
-                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                           : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {gen === 'todos' ? 'Todos' : gen.charAt(0).toUpperCase() + gen.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {/* Divisor Visual */}
+            <div className="border-t border-slate-200 dark:border-slate-800" />
 
-              {/* Idade */}
-              <div className="space-y-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Faixa Etária</span>
-                <div className="flex flex-wrap gap-1">
-                  {['todos', '18-25', '26-35', '36-44', '45-55', '55-70'].map(age => (
+            {/* 3. Faixa Etária */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> Faixa Etária
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400">
+                  Filtrar por idade
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 bg-slate-100/80 dark:bg-slate-800/70 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
+                <div className="grid grid-cols-5 flex-1 divide-x divide-slate-200 dark:divide-slate-700 overflow-hidden rounded-xl bg-white dark:bg-slate-850 shadow-2xs">
+                  {['18-25', '26-35', '36-44', '45-55', '55-70'].map((age) => {
+                    const isSelected = tempAge === age;
+                    return (
+                      <button
+                        key={age}
+                        type="button"
+                        onClick={() => setTempAge(age)}
+                        className={`py-2 px-1 text-xs font-bold transition-all cursor-pointer text-center relative ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white shadow-sm z-10'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-750'
+                        }`}
+                      >
+                        {age}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Divisor vertical no desktop / horizontal no mobile */}
+                <div className="hidden sm:block w-[1px] h-7 bg-slate-300 dark:bg-slate-700 shrink-0 mx-0.5" />
+                <div className="block sm:hidden h-[1px] bg-slate-200 dark:bg-slate-700 my-0.5" />
+
+                {/* Opção Todos na última posição */}
+                {(() => {
+                  const isSelected = tempAge === 'todos';
+                  return (
                     <button
-                      key={age}
-                      onClick={() => setTempAge(age)}
-                      className={`px-2 py-1.5 text-[10px] font-bold rounded-lg border transition-colors flex-1 min-w-[45px] ${
-                        tempAge === age
-                           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                           : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      type="button"
+                      onClick={() => setTempAge('todos')}
+                      className={`py-2 px-4 text-xs font-extrabold rounded-xl transition-all cursor-pointer text-center shrink-0 border ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-white dark:bg-slate-850 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
                       }`}
                     >
-                      {age === 'todos' ? 'Todos' : age}
+                      Todos
                     </button>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
             </div>
 
-            {/* Interesses / Hobbies */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Tag className="w-3.5 h-3.5 text-slate-500" /> Filtrar por Interesses / Hobbies
-              </span>
+            {/* Divisor Visual */}
+            <div className="border-t border-slate-200 dark:border-slate-800" />
+
+            {/* 4. Interesses / Hobbies */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> Filtrar por Interesses / Hobbies
+                </span>
+                {tempInterests.length > 0 && (
+                  <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                    {tempInterests.length} selecionado{tempInterests.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {POPULAR_INTERESTS.map(interest => {
                   const isSelected = tempInterests.includes(interest);
                   return (
                     <button
                       key={interest}
+                      type="button"
                       onClick={() => {
                         if (isSelected) {
                           setTempInterests(prev => prev.filter(i => i !== interest));
@@ -795,23 +952,27 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
                           setTempInterests(prev => [...prev, interest]);
                         }
                       }}
-                      className={`px-2.5 py-1 text-[10px] font-bold rounded-full border transition-all duration-150 flex items-center gap-1 cursor-pointer ${
+                      className={`px-3 py-1.5 text-xs font-bold rounded-full border transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                         isSelected
-                           ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600 shadow-sm'
-                           : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                          ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-600 shadow-sm ring-2 ring-purple-300 dark:ring-purple-800'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
                       }`}
                     >
                       <span>{interest}</span>
-                      {isSelected && <span className="text-[9px] font-bold">✓</span>}
+                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="pt-3 border-t border-slate-200/50 dark:border-slate-800/50 flex justify-between items-center gap-4">
+            {/* Divisor Visual */}
+            <div className="border-t border-slate-200 dark:border-slate-800" />
+
+            {/* 5. Botões de Ação */}
+            <div className="pt-1 flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2.5">
               <button
+                type="button"
                 onClick={() => {
                   setTempRadius(5000);
                   setTempGender('todos');
@@ -824,12 +985,13 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
                   setSelectedInterests([]);
                   setShowAdvancedFilters(false);
                 }}
-                className="text-[10px] font-bold text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
+                className="text-xs font-bold text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer border border-transparent hover:border-rose-200 dark:hover:border-rose-900"
               >
-                <X className="w-3.5 h-3.5" /> Limpar filtros de busca
+                <X className="w-4 h-4" /> Limpar filtros de busca
               </button>
 
               <button
+                type="button"
                 onClick={() => {
                   setRadius(tempRadius);
                   setGenderFilter(tempGender);
@@ -837,9 +999,10 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
                   setSelectedInterests(tempInterests);
                   setShowAdvancedFilters(false);
                 }}
-                className="bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white text-xs font-extrabold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-200/50 dark:shadow-none flex items-center justify-center gap-2 cursor-pointer"
               >
-                Aplicar Filtros
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>Aplicar Filtros</span>
               </button>
             </div>
           </div>
@@ -847,27 +1010,6 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
       </div>
 
       <div className="p-4 space-y-4">
-        {/* Verification Reminder Banner */}
-        {isCurrentUserVerified === false && (
-          <div className="p-4 bg-gradient-to-r from-purple-50 to-fuchsia-50 rounded-2xl border border-purple-100/60 shadow-sm flex flex-col sm:flex-row items-center gap-4">
-            <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center text-white shrink-0 shadow-sm">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="flex-1 text-center sm:text-left">
-              <h4 className="text-xs font-bold text-purple-900 uppercase tracking-wider">Verificação Pendente</h4>
-              <p className="text-xs text-purple-700 font-semibold mt-0.5 leading-relaxed">
-                Valide seus documentos pessoais por inteligência artificial para conquistar o selo de confiança <b>Identificação Confirmada</b> e destacar seu perfil!
-              </p>
-            </div>
-            <Link 
-              to={`/profile/${auth.currentUser?.uid}?validateDoc=true`}
-              className="bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition-all shadow-sm shrink-0"
-            >
-              Validar Documentos
-            </Link>
-          </div>
-        )}
-
         {error && (
            <div className="bg-red-50 text-red-500 p-3 rounded-xl text-xs border border-red-100 font-medium">
              {error}
@@ -946,10 +1088,11 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
              return true;
            });
 
-           const totalPages = Math.ceil(filteredUsers.length / 12);
-            const paginatedUsers = filteredUsers.slice((currentPage - 1) * 12, currentPage * 12);
+           const ITEMS_PER_PAGE = 10;
+           const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+           const paginatedUsers = filteredUsers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-            if (filteredUsers.length === 0) {
+           if (filteredUsers.length === 0) {
              return (
                <div className="text-center py-12 text-gray-400">
                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -963,7 +1106,8 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
 
            return (
              <div className="flex flex-col">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-5 mb-8">
+               {/* Grade com 2 pessoas na horizontal e até 5 linhas na vertical (10 pessoas por página) */}
+               <div className="grid grid-cols-2 gap-3.5 sm:gap-4 mb-8">
                {paginatedUsers.map(u => (
                  <div key={u.userId} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col hover:border-indigo-300 dark:hover:border-indigo-850 transition-colors group">
                    <Link to={`/profile/${u.userId}`} className="block relative aspect-[4/5] overflow-hidden">
@@ -983,25 +1127,8 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
                      <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
                        <MapPin className="w-3 h-3 text-indigo-300" /> {u.distance}
                       </div>
-                      <div className="absolute bottom-2 left-2 flex flex-col gap-1 items-start max-w-[95%]">
-                        {u.profile?.facialVerified && (
-                          <div className="bg-blue-600/95 backdrop-blur-md text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md border border-blue-400/30 tracking-wide uppercase">
-                            <ShieldCheck className="w-3 h-3 text-blue-100 shrink-0" />
-                            <span>Rosto Verificado IA</span>
-                          </div>
-                        )}
-                        {u.idVerified && (
-                          <div className="bg-emerald-600/95 backdrop-blur-md text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md border border-emerald-400/30 tracking-wide uppercase">
-                            <CheckCircle className="w-3 h-3 text-emerald-100 shrink-0" />
-                            <span>Doc Confirmado</span>
-                          </div>
-                        )}
-                        {u.profile?.verified && !u.idVerified && (
-                          <div className="bg-emerald-500/95 backdrop-blur-md text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-md border border-emerald-400/30 tracking-wide uppercase">
-                            <CheckCircle className="w-3 h-3 text-emerald-100 shrink-0" />
-                            <span>Verificado</span>
-                          </div>
-                        )}
+                      <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+                        <ZodiacBadge user={u} variant="image-badge" />
                       </div>
                     </Link>
                    
@@ -1009,9 +1136,30 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
                      <Link to={`/profile/${u.userId}`} className="mb-2.5 flex flex-col group-hover:text-indigo-600 transition-colors">
                         <div className="font-bold text-[14px] leading-tight text-slate-800 dark:text-slate-100 flex items-center gap-1 truncate">
                           {u.profile?.apelido || u.profile?.nome}, {u.profile?.idade}
-                          {u.profile?.verified && <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-                          {u.profile?.facialVerified && <ShieldCheck className="w-3.5 h-3.5 text-blue-500 shrink-0 fill-blue-50" aria-label="Verificação Facial por IA" />}
-                          {u.idVerified && <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0 fill-emerald-50" aria-label="Identificação Confirmada" />}
+                          {u.profile?.verified && (
+                            <span title="Perfil e E-mail Verificado" className="inline-flex items-center">
+                              <CheckCircle 
+                                className="w-3.5 h-3.5 text-emerald-500 shrink-0 fill-emerald-50 dark:fill-emerald-950/30" 
+                                aria-label="Perfil Verificado"
+                              />
+                            </span>
+                          )}
+                          {u.profile?.facialVerified && (
+                            <span title="Biometria Facial Confirmada por IA" className="inline-flex items-center">
+                              <ShieldCheck 
+                                className="w-3.5 h-3.5 text-sky-500 shrink-0 fill-sky-50 dark:fill-sky-950/30" 
+                                aria-label="Verificação Facial por IA" 
+                              />
+                            </span>
+                          )}
+                          {u.idVerified && (
+                            <span title="Documento Oficial Confirmado por IA (RG/CNH)" className="inline-flex items-center">
+                              <BadgeCheck 
+                                className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0 fill-purple-50 dark:fill-purple-950/30" 
+                                aria-label="Identificação Confirmada" 
+                              />
+                            </span>
+                          )}
                         </div>
                         <div className="flex justify-between items-center text-[11px] mt-0.5">
                           {u.profile?.estadoNascimento ? (
@@ -1291,6 +1439,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
               <div className="absolute -bottom-2 -right-2 bg-rose-500 text-white p-2.5 rounded-full shadow-md">
                 <Heart className="w-5 h-5 fill-white animate-bounce" />
               </div>
+              <ZodiacBadge user={matchUser} variant="avatar-badge" className="bottom-0 left-0 w-8 h-8 text-sm shadow-md" />
             </div>
 
             <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-indigo-600 mb-2">

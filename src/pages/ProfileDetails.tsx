@@ -128,6 +128,8 @@ import { onAuthStateChanged, updatePassword, reauthenticateWithCredential, Email
 import { auth, db, handleFirestoreError, OperationType, storage } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, query, collection, where, serverTimestamp, onSnapshot, getDocs, deleteDoc } from 'firebase/firestore';
 import { convertToDDMMAAAA } from '../utils/migration';
+import ZodiacBadge from '../components/ZodiacBadge';
+import { getZodiacSignFromDate, getZodiacSignByName, resolveUserZodiac } from '../utils/zodiac';
 
 import { 
   ChevronLeft, 
@@ -148,6 +150,7 @@ import {
   ChevronRight,
   Shield,
   ShieldCheck,
+  BadgeCheck,
   Camera,
   RefreshCw,
   HelpCircle,
@@ -164,16 +167,14 @@ import {
   Eye,
   EyeOff,
   Settings,
-  Sun,
+  Users,
   Moon,
-  Laptop,
   Lock,
   Battery,
   BatteryCharging
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MOCK_USERS } from './Discover';
-import { useTheme } from '../lib/theme';
 
 interface FloatingHeart {
   id: number;
@@ -200,7 +201,6 @@ export default function ProfileDetails() {
   }, []);
 
   const isOwnProfile = id === currentUser?.uid;
-  const { theme, setTheme } = useTheme();
 
   // Profile state
   const [profile, setProfile] = useState<any>(null);
@@ -346,11 +346,17 @@ export default function ProfileDetails() {
     }
     
     setEditDataNascimento(value);
+    const autoZodiac = getZodiacSignFromDate(value);
+    if (autoZodiac) {
+      setEditSigno(`${autoZodiac.name} ${autoZodiac.symbol}`);
+    }
   };
 
   const [editTelefone, setEditTelefone] = useState('');
   const [editSexo, setEditSexo] = useState('');
   const [editInteresse, setEditInteresse] = useState('todos');
+  const [editReceberContatosDe, setEditReceberContatosDe] = useState('todos');
+  const [contactPrefSavedToast, setContactPrefSavedToast] = useState(false);
   const [editCor, setEditCor] = useState('');
   const [editEstadoCivil, setEditEstadoCivil] = useState('');
   const [editObjetivo, setEditObjetivo] = useState('casual');
@@ -1000,6 +1006,7 @@ export default function ProfileDetails() {
       setEditTelefone(profile.telefone || '');
       setEditSexo(profile.sexo || '');
       setEditInteresse(profile.interesse || 'todos');
+      setEditReceberContatosDe(profile.receberContatosDe || 'todos');
       setEditCor(profile.cor || '');
       setEditEstadoCivil(profile.estadoCivil || '');
       setEditObjetivo(profile.objetivo || 'casual');
@@ -1335,6 +1342,23 @@ export default function ProfileDetails() {
     }
   };
 
+  const handleUpdateReceberContatos = async (val: string) => {
+    if (!auth.currentUser) return;
+    try {
+      setEditReceberContatosDe(val);
+      setProfile((prev: any) => prev ? { ...prev, receberContatosDe: val } : prev);
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, {
+        'profile.receberContatosDe': val
+      });
+      setContactPrefSavedToast(true);
+      setTimeout(() => setContactPrefSavedToast(false), 3000);
+    } catch (err) {
+      console.error("Error updating contact preference:", err);
+      alert("Houve um erro ao atualizar sua preferência de contatos.");
+    }
+  };
+
   const handleConfirmFaceLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setFaceLoginError('');
@@ -1596,6 +1620,7 @@ export default function ProfileDetails() {
         'profile.telefone': editTelefone,
         'profile.sexo': editSexo,
         'profile.interesse': editInteresse,
+        'profile.receberContatosDe': editReceberContatosDe,
         'profile.cor': editCor,
         'profile.estadoCivil': editEstadoCivil,
         'profile.objetivo': editObjetivo,
@@ -1758,6 +1783,27 @@ export default function ProfileDetails() {
         setConnectionStatus('connected');
         setShowMatchModal(true);
       } else if (connectionStatus === 'none') {
+        // Verify recipient's contact preference
+        if (profile?.receberContatosDe && profile.receberContatosDe !== 'todos') {
+          try {
+            const myDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+            if (myDoc.exists()) {
+              const myData = myDoc.data();
+              const myGender = (myData.profile?.sexo || myData.profile?.genero || '').toLowerCase();
+              if (profile.receberContatosDe === 'mulheres' && myGender === 'masculino') {
+                alert("Este usuário optou por receber contatos apenas de Mulheres.");
+                return;
+              }
+              if (profile.receberContatosDe === 'homens' && myGender === 'feminino') {
+                alert("Este usuário optou por receber contatos apenas de Homens.");
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn("Contact preference verification error:", e);
+          }
+        }
+
         // Send outgoing request / like
         const requestId = `${auth.currentUser.uid}_${id}`;
         await setDoc(doc(db, 'friendRequests', requestId), {
@@ -1829,6 +1875,29 @@ export default function ProfileDetails() {
 
         setConnectionStatus('connected');
       } else if (connectionStatus === 'none') {
+        // Verify recipient's contact preference
+        if (profile?.receberContatosDe && profile.receberContatosDe !== 'todos') {
+          try {
+            const myDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+            if (myDoc.exists()) {
+              const myData = myDoc.data();
+              const myGender = (myData.profile?.sexo || myData.profile?.genero || '').toLowerCase();
+              if (profile.receberContatosDe === 'mulheres' && myGender === 'masculino') {
+                alert("Este usuário optou por receber contatos apenas de Mulheres.");
+                setIsConnecting(false);
+                return;
+              }
+              if (profile.receberContatosDe === 'homens' && myGender === 'feminino') {
+                alert("Este usuário optou por receber contatos apenas de Homens.");
+                setIsConnecting(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn("Contact preference verification error:", e);
+          }
+        }
+
         // Send outgoing request
         const requestId = `${auth.currentUser.uid}_${id}`;
         await setDoc(doc(db, 'friendRequests', requestId), {
@@ -2087,7 +2156,7 @@ export default function ProfileDetails() {
             <ChevronLeft className="w-6 h-6 mr-0.5" />
           </button>
           
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button 
               onClick={handleShare}
               className="w-10 h-10 bg-black/40 backdrop-blur-md text-white rounded-full flex items-center justify-center hover:bg-black/60 transition-all border border-white/10 relative active:scale-95"
@@ -2188,7 +2257,7 @@ export default function ProfileDetails() {
                 const saved = localStorage.getItem('search_radius');
                 const searchRadius = saved ? Number(saved) : 50000;
                 if (profile.distanceValue !== undefined) {
-                  if (profile.distanceValue > 50000) {
+                  if (profile.distanceValue > 500000) {
                     isOffline = true;
                   } else if (profile.distanceValue > searchRadius) {
                     isOutOfRange = true;
@@ -2280,9 +2349,9 @@ export default function ProfileDetails() {
 
           <h1 className="text-3xl font-extrabold flex items-center gap-2 drop-shadow-md">
             {profile.apelido || profile.nome}, {profile.idade}
-            {isVerified && <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0 fill-emerald-950/20" aria-label="Perfil Verificado" />}
-            {isFacialVerified && <ShieldCheck className="w-6 h-6 text-blue-400 shrink-0 fill-blue-950/20 animate-pulse" aria-label="Foto Verificada por Inteligência Artificial" />}
-            {isIdVerified && <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0 fill-emerald-950/20 animate-pulse" aria-label="Identificação Confirmada por IA" />}
+            {isVerified && <span title="Perfil e E-mail Verificado" className="inline-flex items-center"><CheckCircle className="w-6 h-6 text-emerald-400 shrink-0 fill-emerald-950/20" aria-label="Perfil Verificado" /></span>}
+            {isFacialVerified && <span title="Biometria Facial Confirmada por IA" className="inline-flex items-center"><ShieldCheck className="w-6 h-6 text-sky-400 shrink-0 fill-sky-950/20 animate-pulse" aria-label="Foto Verificada por Inteligência Artificial" /></span>}
+            {isIdVerified && <span title="Documento Oficial Confirmado por IA (RG/CNH)" className="inline-flex items-center"><BadgeCheck className="w-6 h-6 text-purple-400 shrink-0 fill-purple-950/20 animate-pulse" aria-label="Identificação Confirmada por IA" /></span>}
 
           </h1>
           
@@ -2420,6 +2489,156 @@ export default function ProfileDetails() {
 
       {/* 2. Scrollable Profile Information Cards */}
       <div className="p-5 space-y-6">
+
+        {/* Central de Notificações de Verificações da Conta (Somente no Perfil Próprio) */}
+        {isOwnProfile && (() => {
+          const emailIsDone = Boolean(
+            currentUser?.emailVerified ||
+            isVerified ||
+            profile?.emailVerified ||
+            profile?.verified
+          );
+          const idIsDone = Boolean(isIdVerified || profile?.idVerified);
+          const faceIsDone = Boolean(isFacialVerified || profile?.facialVerified);
+          const photoIsDone = Boolean(profile?.fotoPrincipalUrl);
+
+          const pendingList = [
+            !emailIsDone && {
+              id: 'email',
+              title: 'Confirmação de E-mail',
+              desc: 'Confirme seu endereço de e-mail para validar seu acesso e receber avisos de segurança da plataforma.',
+              actionText: 'Confirmar E-mail',
+              actionUrl: '/verify-email',
+              icon: '✉️'
+            },
+            !idIsDone && {
+              id: 'id',
+              title: 'Validação de Identidade (RG/CNH)',
+              desc: 'Envie a foto do seu documento oficial para confirmar seus dados e conquistar o Selo de Autenticidade.',
+              actionText: 'Validar Documento',
+              onClick: () => setIdVerifyModalOpen(true),
+              icon: '🪪'
+            },
+            !faceIsDone && {
+              id: 'face',
+              title: 'Biometria Facial com Inteligência Artificial',
+              desc: 'Faça uma selfie em tempo real para comprovar a titularidade do perfil e garantir o selo de confiança.',
+              actionText: 'Verificar Facial',
+              onClick: () => setFaceVerifyModalOpen(true),
+              icon: '📸'
+            },
+            !photoIsDone && {
+              id: 'photo',
+              title: 'Foto Principal do Perfil',
+              desc: 'Adicione uma foto de perfil nítida para aumentar sua visibilidade e chances de conexões com amigos.',
+              actionText: 'Adicionar Foto',
+              onClick: () => setEditModalOpen(true),
+              icon: '👤'
+            },
+          ].filter(Boolean) as Array<{ id: string; title: string; desc: string; actionText: string; actionUrl?: string; onClick?: () => void; icon: string }>;
+
+          const hasPending = pendingList.length > 0;
+
+          return (
+            <div className={`p-5 rounded-3xl border transition-all shadow-sm space-y-4 ${
+              hasPending 
+                ? 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50' 
+                : 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50'
+            }`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-md ${
+                    hasPending 
+                      ? 'bg-rose-500 shadow-rose-500/30' 
+                      : 'bg-emerald-500 shadow-emerald-500/30'
+                  }`}>
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        hasPending ? 'bg-rose-500 animate-pulse ring-2 ring-rose-400/80 shadow-rose-500/50' : 'bg-emerald-500 ring-2 ring-emerald-400/80 shadow-emerald-500/30'
+                      }`} />
+                      <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                        {hasPending 
+                          ? `Verificações Pendentes (${pendingList.length})` 
+                          : 'Todas as Verificações Cumpridas!'}
+                      </h3>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 leading-snug">
+                      {hasPending
+                        ? 'Cumpra todas as pendências abaixo para ter o círculo verde de autenticidade no seu perfil.'
+                        : 'Sua conta está 100% verificada, autêntica e com selo verde de segurança ativo.'}
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 ${
+                  hasPending
+                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/80'
+                    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/80'
+                }`}>
+                  {hasPending ? 'Pendente' : 'Concluído'}
+                </span>
+              </div>
+
+              {hasPending ? (
+                <div className="space-y-2.5 pt-1">
+                  {pendingList.map((item) => (
+                    <div 
+                      key={item.id}
+                      className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-rose-100/90 dark:border-rose-900/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                            {item.title}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                            {item.desc}
+                          </p>
+                        </div>
+                      </div>
+
+                      {item.actionUrl ? (
+                        <Link
+                          to={item.actionUrl}
+                          className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold text-center shrink-0 transition-colors shadow-xs active:scale-95 cursor-pointer"
+                        >
+                          {item.actionText}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={item.onClick}
+                          className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold text-center shrink-0 transition-colors shadow-xs active:scale-95 cursor-pointer"
+                        >
+                          {item.actionText}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                  <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-200/60 dark:border-emerald-800/40">
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[3]" /> E-mail Verificado
+                  </div>
+                  <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-200/60 dark:border-emerald-800/40">
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[3]" /> Identidade Oficial
+                  </div>
+                  <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-200/60 dark:border-emerald-800/40">
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[3]" /> Biometria Facial IA
+                  </div>
+                  <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-200/60 dark:border-emerald-800/40">
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[3]" /> Foto Cadastrada
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* AI Facial Verification Info Box */}
         {isFacialVerified ? (
@@ -2591,54 +2810,52 @@ export default function ProfileDetails() {
               Configurações do Aplicativo
             </h3>
 
+            {/* Contact Preference: Quero receber contatos, apenas de */}
             <div className="space-y-3">
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Tema do Aplicativo
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    Quero receber contatos, apenas de:
+                  </span>
+                  {contactPrefSavedToast && (
+                    <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full flex items-center gap-1 animate-fade-in border border-emerald-200 dark:border-emerald-800">
+                      <Check className="w-3 h-3 text-emerald-600" /> Salvo!
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium leading-relaxed">
-                  Personalize a aparência do aplicativo para se adequar ao seu estilo e ambiente. A alteração é aplicada instantaneamente.
+                  Defina de quem você aceita receber interações e contatos. Você pode modificar esta preferência a qualquer momento.
                 </p>
               </div>
 
-              {/* Theme Switcher Button Group */}
-              <div className="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-950 p-1 rounded-xl border border-slate-150/40 dark:border-slate-800/80">
-                <button
-                  onClick={() => setTheme('light')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    theme === 'light'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <Sun className="w-3.5 h-3.5" />
-                  <span>Claro</span>
-                </button>
-
-                <button
-                  onClick={() => setTheme('dark')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    theme === 'dark'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <Moon className="w-3.5 h-3.5" />
-                  <span>Escuro</span>
-                </button>
-
-                <button
-                  onClick={() => setTheme('system')}
-                  className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
-                    theme === 'system'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-slate-700/50'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <Laptop className="w-3.5 h-3.5" />
-                  <span>Sistema</span>
-                </button>
+              {/* 3 Options: Mulheres, Homens, Não Faço Distinção */}
+              <div className="grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-950 p-1.5 rounded-xl border border-slate-150/40 dark:border-slate-800/80">
+                {[
+                  { id: 'mulheres', label: 'Mulheres' },
+                  { id: 'homens', label: 'Homens' },
+                  { id: 'todos', label: 'Não Faço Distinção' }
+                ].map((opt) => {
+                  const currentVal = profile?.receberContatosDe || editReceberContatosDe || 'todos';
+                  const isSelected = currentVal === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleUpdateReceberContatos(opt.id)}
+                      className={`flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg text-xs font-bold transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100 dark:shadow-none ring-2 ring-indigo-300 dark:ring-indigo-700'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-800'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5" />}
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
               {/* Facial Recognition Login Switch */}
               <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
@@ -2809,7 +3026,6 @@ export default function ProfileDetails() {
                 </div>
               </div>
             </div>
-          </div>
         )}
 
         {/* Dicas de Segurança Card */}
@@ -2878,10 +3094,20 @@ export default function ProfileDetails() {
 
             {/* Zodiac Sign */}
             <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <Sparkles className="w-4 h-4 text-slate-400 shrink-0" />
+              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
               <div>
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Signo</p>
-                <p className="text-xs font-extrabold text-slate-700">{profile.signo || 'Leão'}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Signo do Zodíaco</p>
+                {(() => {
+                  const z = resolveUserZodiac(profile);
+                  return (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-base leading-none text-amber-500 font-bold">{z?.symbol || '✨'}</span>
+                      <p className="text-xs font-extrabold text-slate-700">
+                        {z?.name || profile.signo || 'Áries'}
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -2915,6 +3141,21 @@ export default function ProfileDetails() {
                 </div>
               </div>
             )}
+
+            {/* Contact preference */}
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-100 dark:border-slate-800 col-span-2">
+              <Users className="w-4 h-4 text-indigo-500 shrink-0" />
+              <div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Quero receber contatos apenas de</p>
+                <p className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                  {profile.receberContatosDe === 'mulheres'
+                    ? 'Mulheres'
+                    : profile.receberContatosDe === 'homens'
+                    ? 'Homens'
+                    : 'Não Faço Distinção'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -4364,6 +4605,22 @@ export default function ProfileDetails() {
                   </select>
                 </div>
 
+                {/* Quero receber contatos, apenas de */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                    Quero receber contatos, apenas de:
+                  </label>
+                  <select 
+                    value={editReceberContatosDe} 
+                    onChange={e => setEditReceberContatosDe(e.target.value)} 
+                    className="w-full text-xs font-semibold p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none font-bold"
+                  >
+                    <option value="todos">Não Faço Distinção</option>
+                    <option value="mulheres">Mulheres</option>
+                    <option value="homens">Homens</option>
+                  </select>
+                </div>
+
                 {/* Estado Civil & Objetivo */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -4465,26 +4722,32 @@ export default function ProfileDetails() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Signo</label>
-                    <select 
-                      value={editSigno} 
-                      onChange={e => setEditSigno(e.target.value)} 
-                      className="w-full text-xs font-semibold p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none"
-                    >
-                      <option value="">Não informado</option>
-                      <option value="Áries ♈">Áries ♈</option>
-                      <option value="Touro ♉">Touro ♉</option>
-                      <option value="Gêmeos ♊">Gêmeos ♊</option>
-                      <option value="Câncer ♋">Câncer ♋</option>
-                      <option value="Leão ♌">Leão ♌</option>
-                      <option value="Virgem ♍">Virgem ♍</option>
-                      <option value="Libra ♎">Libra ♎</option>
-                      <option value="Escorpião ♏">Escorpião ♏</option>
-                      <option value="Sagitário ♐">Sagitário ♐</option>
-                      <option value="Capricórnio ♑">Capricórnio ♑</option>
-                      <option value="Aquário ♒">Aquário ♒</option>
-                      <option value="Peixes ♓">Peixes ♓</option>
-                    </select>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Signo</label>
+                      <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                        Definido por data
+                      </span>
+                    </div>
+                    {(() => {
+                      const zInfo = getZodiacSignFromDate(editDataNascimento) || getZodiacSignByName(editSigno);
+                      if (zInfo) {
+                        return (
+                          <div className="w-full text-xs font-semibold p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl leading-none text-amber-500 font-black">{zInfo.symbol}</span>
+                              <div>
+                                <span className="font-extrabold text-slate-800 block leading-tight">{zInfo.name}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="w-full text-xs p-3 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-slate-400 italic">
+                          Informe a data de nascimento para calcular o signo
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="space-y-1.5">

@@ -4,6 +4,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Link } from 'react-router-dom';
 import { Check, Clock, X, Ban, User, Phone, Mail, Plus, Trash, Tag, Settings, ChevronDown, Search, Sparkles } from 'lucide-react';
 import CachedLazyImage from '../components/CachedLazyImage';
+import ZodiacBadge from '../components/ZodiacBadge';
 
 interface FriendRequest {
   id: string;
@@ -562,13 +563,14 @@ export default function Friends() {
             {requests.map(req => (
               <div key={req.id} className="bg-white dark:bg-slate-850 rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-750">
                 <div className="flex items-center gap-4 mb-4">
-                  <Link to={`/profile/${req.fromUserId}`} className="shrink-0">
+                  <Link to={`/profile/${req.fromUserId}`} className="shrink-0 relative">
                     <CachedLazyImage 
                       src={req.profile.fotoPrincipalUrl || ''} 
                       alt={req.profile.nome || 'Foto de Perfil'} 
                       className="w-16 h-16 rounded-full object-cover border-2 border-slate-50 dark:border-slate-800 shadow-sm" 
                       fallbackSeed={req.fromUserId} 
                     />
+                    <ZodiacBadge user={req} variant="avatar-badge" />
                   </Link>
                   <div className="flex-1 min-w-0">
                     <Link to={`/profile/${req.fromUserId}`} className="block">
@@ -633,6 +635,7 @@ export default function Friends() {
                       className="w-18 h-18 sm:w-20 sm:h-20 rounded-full object-cover border-2 border-slate-50 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform duration-200 animate-fade-in" 
                       fallbackSeed={view.visitorId} 
                     />
+                    <ZodiacBadge user={view} variant="avatar-badge" />
                   </div>
                   <div className="w-full min-w-0 flex flex-col items-center">
                     <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight truncate w-full">
@@ -815,6 +818,7 @@ export default function Friends() {
                           className="w-16 h-16 rounded-full object-cover border-2 border-slate-50 dark:border-slate-800 shadow-sm" 
                           fallbackSeed={conn.friendId} 
                         />
+                        <ZodiacBadge user={conn} variant="avatar-badge" className="right-2" />
                         <span className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-sm ${online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                       </Link>
                       <div className="flex-1 min-w-0">
