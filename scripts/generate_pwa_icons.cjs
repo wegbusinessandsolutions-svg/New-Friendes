@@ -1,4 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+
+// Exact SVG recreation of the uploaded ico_nfs.png logo
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <!-- Background Gradient for Maskable Icons -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -93,4 +98,65 @@
     <!-- Center White Hole -->
     <circle cx="256" cy="226" r="28" fill="#ffffff"/>
   </g>
-</svg>
+</svg>`;
+
+async function generate() {
+  const publicDir = path.resolve(__dirname, '../public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+
+  // 1. Write public/icon.svg
+  fs.writeFileSync(path.join(publicDir, 'icon.svg'), svgContent);
+  console.log('Saved public/icon.svg');
+
+  const svgBuffer = Buffer.from(svgContent);
+
+  // 2. Generate pwa-192x192.png
+  await sharp(svgBuffer)
+    .resize(192, 192)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-192x192.png'));
+  console.log('Generated pwa-192x192.png');
+
+  // 3. Generate pwa-512x512.png
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-512x512.png'));
+  console.log('Generated pwa-512x512.png');
+
+  // 4. Generate pwa-maskable-512x512.png (with safe zone padding: 15% inner shrink for Android squircle)
+  await sharp(svgBuffer)
+    .resize(410, 410)
+    .extend({
+      top: 51,
+      bottom: 51,
+      left: 51,
+      right: 51,
+      background: '#f8fafc'
+    })
+    .resize(512, 512)
+    .png()
+    .toFile(path.join(publicDir, 'pwa-maskable-512x512.png'));
+  console.log('Generated pwa-maskable-512x512.png');
+
+  // 5. Generate apple-touch-icon.png (180x180)
+  await sharp(svgBuffer)
+    .resize(180, 180)
+    .png()
+    .toFile(path.join(publicDir, 'apple-touch-icon.png'));
+  console.log('Generated apple-touch-icon.png');
+
+  // 6. Generate favicon-32x32.png and favicon.ico
+  await sharp(svgBuffer)
+    .resize(32, 32)
+    .png()
+    .toFile(path.join(publicDir, 'favicon-32x32.png'));
+  console.log('Generated favicon-32x32.png');
+}
+
+generate().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

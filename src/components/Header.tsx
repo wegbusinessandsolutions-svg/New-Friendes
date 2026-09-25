@@ -6,6 +6,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, updateDoc, addDoc, collection, serverTimestamp, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { MOCK_USERS } from '../pages/Discover';
 import { openNativeSms } from '../utils/sms';
+import { PWAHeaderInstallButton } from './PWAInstallBanner';
 
 interface HeaderProps {
   onStartTour?: () => void;
@@ -19,7 +20,7 @@ export default function Header({ onStartTour }: HeaderProps) {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState(false);
   const [searchRadius, setSearchRadius] = useState<number>(50000);
-  const [appTitle, setAppTitle] = useState('New Friends.br');
+  const [appTitle, setAppTitle] = useState('Perto.br');
 
   // Listen to custom app title
   useEffect(() => {
@@ -544,6 +545,9 @@ Horário: ${dateTimeStr}`;
           >
             <Siren className={`w-5 h-5 ${isSosTrackingActive ? 'text-yellow-300 animate-bounce' : isSendingHelp ? 'animate-pulse' : ''}`} />
           </button>
+
+          {/* PWA Quick Install Trigger */}
+          <PWAHeaderInstallButton />
 
           {/* Walkthrough Tour Help Trigger */}
           <button

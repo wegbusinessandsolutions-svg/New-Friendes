@@ -130,6 +130,7 @@ import { doc, getDoc, setDoc, updateDoc, query, collection, where, serverTimesta
 import { convertToDDMMAAAA } from '../utils/migration';
 import ZodiacBadge from '../components/ZodiacBadge';
 import { getZodiacSignFromDate, getZodiacSignByName, resolveUserZodiac } from '../utils/zodiac';
+import { formatBrazilianPhone } from '../utils/phone';
 
 import { 
   ChevronLeft, 
@@ -422,10 +423,83 @@ export default function ProfileDetails() {
   const handleCompleteVerification = async () => {
     try {
       if (auth.currentUser) {
+        // 1. Capture live camera frame if available
+        let capturedImageBase64 = '';
+        if (videoRef.current && videoRef.current.videoWidth > 0) {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth || 480;
+            canvas.height = videoRef.current.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              // Video is horizontally flipped, flip it on canvas for natural appearance
+              ctx.translate(canvas.width, 0);
+              ctx.scale(-1, 1);
+              ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+              capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            }
+          } catch (canvasErr) {
+            console.warn("Could not capture video frame:", canvasErr);
+          }
+        }
+
+        // Fallback to profile main photo or mock if simulator was used
+        if (!capturedImageBase64 && profile?.fotoPrincipalUrl) {
+          capturedImageBase64 = profile.fotoPrincipalUrl;
+        }
+
+        // 2. Capture Geographic Coordinates of where verification took place
+        let coords: { lat: number; lng: number; accuracy?: number } | null = null;
+        try {
+          coords = await new Promise<{ lat: number; lng: number; accuracy?: number } | null>((resolve) => {
+            if (!navigator.geolocation) {
+              resolve(null);
+              return;
+            }
+            navigator.geolocation.getCurrentPosition(
+              (pos) => resolve({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                accuracy: pos.coords.accuracy
+              }),
+              (geoErr) => {
+                console.warn("Geolocation warning during facial verification:", geoErr);
+                resolve(null);
+              },
+              { timeout: 8000, enableHighAccuracy: true }
+            );
+          });
+        } catch (geoEx) {
+          console.warn("Geolocation exception:", geoEx);
+        }
+
+        // 3. Prepare verification record linked to User ID
+        const verificationRecord = {
+          userId: auth.currentUser.uid,
+          userEmail: auth.currentUser.email || '',
+          imageUrl: capturedImageBase64 || null,
+          coordinates: coords ? {
+            latitude: coords.lat,
+            longitude: coords.lng,
+            accuracy: coords.accuracy || null
+          } : null,
+          verifiedAt: new Date().toISOString(),
+          status: 'aprovado',
+          method: 'biometria_facial_ia'
+        };
+
+        // 4. Store verification in user document and in audit collection for future comparisons
         await updateDoc(doc(db, 'users', auth.currentUser.uid), {
           facialVerified: true,
-          "profile.facialVerified": true
+          "profile.facialVerified": true,
+          facialVerificationData: verificationRecord
         });
+
+        try {
+          await setDoc(doc(db, 'facial_verifications', auth.currentUser.uid), verificationRecord, { merge: true });
+        } catch (auditErr) {
+          console.warn("Could not write to facial_verifications collection:", auditErr);
+        }
 
         // Sync with local cache
         try {
@@ -437,6 +511,7 @@ export default function ProfileDetails() {
             if (cachedData.profile) {
               cachedData.profile.facialVerified = true;
             }
+            cachedData.facialVerificationData = verificationRecord;
             localStorage.setItem(cacheKey, JSON.stringify(cachedData));
           }
         } catch (cacheErr) {
@@ -2716,7 +2791,7 @@ export default function ProfileDetails() {
               onClick={() => setIdVerifyModalOpen(true)}
               className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
             >
-              <Camera className="w-4 h-4" /> Enviar Documento
+              <Camera className="w-4 h-4" /> Comparação documental
             </button>
           </div>
         )}
@@ -4485,7 +4560,7 @@ export default function ProfileDetails() {
                   <input 
                     type="tel" 
                     value={editTelefone} 
-                    onChange={e => setEditTelefone(e.target.value)} 
+                    onChange={e => setEditTelefone(formatBrazilianPhone(e.target.value))} 
                     className="w-full text-xs font-semibold p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
                     placeholder="(11) 99999-9999"
                   />

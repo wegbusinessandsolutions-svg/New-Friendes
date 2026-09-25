@@ -36,6 +36,7 @@ import WalkthroughTour from './components/WalkthroughTour';
 import ConnectionAnimation from './components/ConnectionAnimation';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import AppFaceLockScreen from './components/AppFaceLockScreen';
+import PWAInstallBanner from './components/PWAInstallBanner';
 
 export default function App() {
   const { theme, setTheme } = useTheme();
@@ -707,7 +708,12 @@ function AuthenticatedLayout({
 }: AuthenticatedLayoutProps) {
   // 1. Unauthenticated state
   if (!user) {
-    return <Login />;
+    return (
+      <>
+        <Login />
+        <PWAInstallBanner />
+      </>
+    );
   }
 
   // 2. Maintenance Mode screen block
@@ -837,6 +843,9 @@ function AuthenticatedLayout({
       </main>
       
       <Navigation />
+
+      {/* PWA In-App Install Suggestion Banner */}
+      <PWAInstallBanner />
 
       {/* Walkthrough Tour Overlay */}
       {showTour && <WalkthroughTour onClose={() => setShowTour(false)} />}

@@ -14,6 +14,7 @@ import { auth, db, handleFirestoreError, OperationType, storage } from '../lib/f
 import { doc, setDoc, serverTimestamp, getDoc, collection, addDoc } from 'firebase/firestore';
 import { generateUserRegistrationId } from '../utils/userId';
 import { getZodiacSignFromDate } from '../utils/zodiac';
+import { formatBrazilianPhone } from '../utils/phone';
 
 
 export default function Onboarding({ onComplete }: { onComplete: () => void }) {
@@ -102,20 +103,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, '');
-    if (val.length > 11) val = val.slice(0, 11);
-    
-    let formatted = val;
-    if (val.length > 2) {
-      formatted = `(${val.slice(0,2)}) `;
-      if (val.length > 7) {
-        formatted += `${val.slice(2,7)}-${val.slice(7)}`;
-      } else {
-        formatted += val.slice(2);
-      }
-    } else if (val.length > 0) {
-      formatted = `(${val}`;
-    }
+    const formatted = formatBrazilianPhone(e.target.value);
     setFormData({...formData, telefone: formatted});
   };
 

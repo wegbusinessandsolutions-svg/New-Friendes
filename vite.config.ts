@@ -11,22 +11,48 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['icon.svg'],
+        includeAssets: ['favicon-32x32.png', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
-          name: 'New Friends.Br',
-          short_name: 'NewFriends',
-          description: 'New Friends.Br Application',
-          theme_color: '#6366f1',
+          id: '/',
+          name: 'Perto - Conexões Próximas',
+          short_name: 'Perto',
+          description: 'App de relacionamentos por geolocalização que conecta pessoas fisicamente próximas em tempo real.',
+          theme_color: '#0284c7',
           background_color: '#ffffff',
           display: 'standalone',
+          orientation: 'portrait',
+          start_url: '/',
+          scope: '/',
           icons: [
             {
+              src: '/pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any'
+            },
+            {
+              src: '/pwa-maskable-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
+            },
+            {
               src: '/icon.svg',
-              sizes: '192x192 512x512',
+              sizes: 'any',
               type: 'image/svg+xml',
-              purpose: 'any maskable'
+              purpose: 'any'
             }
           ]
+        },
+        devOptions: {
+          enabled: true,
+          type: 'module'
         }
       })
     ],
