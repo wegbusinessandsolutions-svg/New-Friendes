@@ -1,5 +1,5 @@
 import { getDemonym } from '../lib/demonyms';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import CachedLazyImage from '../components/CachedLazyImage';
@@ -162,8 +162,10 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
     return () => unsubscribe();
   }, []);
 
+  const hasCalledLoadStartRef = useRef(false);
   useEffect(() => {
-    if (onInitialLoadStart) {
+    if (onInitialLoadStart && !hasCalledLoadStartRef.current) {
+      hasCalledLoadStartRef.current = true;
       onInitialLoadStart();
     }
   }, [onInitialLoadStart]);
@@ -173,6 +175,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
     const parsed = saved ? Number(saved) : 5000;
     return parsed > 500000 ? 500000 : parsed;
   });
+  const isInitialRadiusRef = useRef(true);
   const [genderFilter, setGenderFilter] = useState('todos');
   const [ageFilter, setAgeFilter] = useState('todos');
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,7 +227,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
     if (status === 'indisponivel') return 'bg-rose-500'; // Red
     if (status === 'restricoes') return 'bg-amber-500'; // Yellow
     if (!isUserOnline(u)) return 'bg-slate-400'; // Gray (Offline)
-    return 'bg-emerald-400 animate-pulse'; // Green (Disponível & Online)
+    return 'bg-emerald-500'; // Green (Disponível & Online)
   };
 
   const getCardStatusLabel = (u: NearbyUser) => {
@@ -552,10 +555,14 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
       if (intervalId) clearInterval(intervalId);
     };
     // eslint-disable-next-line
-  }, [showGeoModal, currentUser]);
+  }, [currentUser?.uid]);
 
   useEffect(() => {
-    fetchNearby();
+    if (isInitialRadiusRef.current) {
+      isInitialRadiusRef.current = false;
+      return;
+    }
+    fetchNearby(true);
     // eslint-disable-next-line
   }, [radius]);
 
@@ -574,24 +581,29 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
         };
       });
 
-      setUsers((prevUsers) =>
-        prevUsers.map((u) => {
+      setUsers((prevUsers) => {
+        let hasAnyChanged = false;
+        const next = prevUsers.map((u) => {
           if (locMap[u.userId]) {
-            return {
-              ...u,
-              status: locMap[u.userId].status as any,
-              lastActive: locMap[u.userId].lastActive,
-            };
+            if (u.status !== locMap[u.userId].status || u.lastActive !== locMap[u.userId].lastActive) {
+              hasAnyChanged = true;
+              return {
+                ...u,
+                status: locMap[u.userId].status as any,
+                lastActive: locMap[u.userId].lastActive,
+              };
+            }
           }
           return u;
-        })
-      );
+        });
+        return hasAnyChanged ? next : prevUsers;
+      });
     }, (err) => {
       handleFirestoreError(err, OperationType.LIST, 'locations');
     });
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser?.uid]);
 
   // Marcos de distância solicitados:
   // 50 Metros, 100 Metros, 200 Metros, 300 Metros, 500 Metros, 1 Km, 3 Km, 5 Km, 10 Km, 20 Km, 50 Km, 100 Km, 200 Km, 500 Km
@@ -731,7 +743,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
             <SlidersHorizontal className="w-4 h-4 shrink-0" />
             <span>Filtros</span>
             {(genderFilter !== 'todos' || ageFilter !== 'todos' || selectedInterests.length > 0 || radius !== 5000) && (
-              <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse"></span>
+              <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
             )}
           </button>
           {/* Indicador sutil de distância ao lado do botão Filtros */}
@@ -1408,6 +1420,7 @@ export default function Discover({ onInitialLoadStart, onInitialLoadEnd }: { onI
               onClick={() => {
                 localStorage.setItem('geo_alert_shown', 'true');
                 setShowGeoModal(false);
+                fetchNearby(true);
               }}
               className="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-indigo-700 transition-colors"
             >

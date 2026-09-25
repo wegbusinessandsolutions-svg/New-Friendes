@@ -13,7 +13,7 @@ const STEPS = [
   { id: 2, text: 'Mapeando preferências e interesses...', icon: Sparkles },
   { id: 3, text: 'Calculando filtros de proximidade...', icon: Share2 },
   { id: 4, text: 'Conectando com pessoas ao seu redor...', icon: Heart },
-  { id: 5, text: 'Tudo pronto! Entrando no Perto...', icon: CheckCircle2 },
+  { id: 5, text: 'Tudo pronto! Entrando no New Friends...', icon: CheckCircle2 },
 ];
 
 // Mock avatars for the graphic network nodes

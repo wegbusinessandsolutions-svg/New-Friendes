@@ -20,7 +20,7 @@ export default function Header({ onStartTour }: HeaderProps) {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isSignOutConfirmOpen, setIsSignOutConfirmOpen] = useState(false);
   const [searchRadius, setSearchRadius] = useState<number>(50000);
-  const [appTitle, setAppTitle] = useState('Perto.br');
+  const [appTitle, setAppTitle] = useState('New Friends.br');
 
   // Listen to custom app title
   useEffect(() => {
@@ -514,8 +514,11 @@ Horário: ${dateTimeStr}`;
             />
           </Link>
 
-          <Link to="/" className="flex items-center gap-2 min-w-0">
-            <h1 className="text-base sm:text-lg font-semibold tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-2 font-friendly truncate">
+          <Link to="/" className="flex items-center gap-2 sm:gap-2.5 min-w-0 group" title="Página Inicial - New Friends.br">
+            <div className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-200/80 dark:border-slate-700/60 p-0.5 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform overflow-hidden">
+              <img src="/pwa-192x192.png" alt="Logomarca New Friends" className="w-full h-full object-contain rounded-lg" />
+            </div>
+            <h1 className="text-base sm:text-lg font-semibold tracking-tight text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 font-friendly truncate">
               <span className="truncate">
                 {appTitle.split(/(\.br| br)/i).map((part, index) => {
                   if (part.toLowerCase() === '.br' || part.toLowerCase() === ' br') {

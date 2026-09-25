@@ -51,14 +51,14 @@ export default function PWAInstallBanner() {
             <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-md border border-slate-100 dark:border-slate-700/60 p-1 shrink-0 overflow-hidden flex items-center justify-center">
               <img
                 src="/pwa-192x192.png"
-                alt="Ícone do Aplicativo Perto"
+                alt="Ícone do Aplicativo New Friends"
                 className="w-full h-full object-contain rounded-lg"
               />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
-                  Instalar o Perto
+                  Instalar o New Friends.br
                 </h3>
                 <span className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60">
                   App PWA
@@ -109,7 +109,7 @@ export default function PWAInstallBanner() {
             <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/60 rounded-2xl flex items-center justify-center mx-auto text-indigo-600 dark:text-indigo-400 shadow-sm">
               <img
                 src="/pwa-192x192.png"
-                alt="Perto"
+                alt="New Friends"
                 className="w-10 h-10 object-contain rounded-xl"
               />
             </div>
@@ -196,7 +196,7 @@ export function PWAHeaderInstallButton() {
         className="px-2.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[11px] font-extrabold rounded-full shadow-sm hover:shadow flex items-center gap-1.5 transition-all active:scale-95 shrink-0"
         title="Instalar aplicativo na tela inicial sem barras de navegação"
       >
-        <Download className="w-3.5 h-3.5 shrink-0 animate-bounce" />
+        <Download className="w-3.5 h-3.5 shrink-0" />
         <span className="hidden sm:inline">Instalar App</span>
       </button>
 
@@ -204,7 +204,7 @@ export function PWAHeaderInstallButton() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 text-center">
             <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
-              Instalar Perto no iPhone
+              Instalar New Friends no iPhone
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               No Safari, toque no ícone de <strong>Compartilhar</strong> (<Share className="inline w-3.5 h-3.5" />) e depois em <strong>Adicionar à Tela de Início</strong> (<PlusSquare className="inline w-3.5 h-3.5" />).

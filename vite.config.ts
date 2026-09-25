@@ -10,12 +10,12 @@ export default defineConfig(() => {
       react(), 
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['favicon-32x32.png', 'apple-touch-icon.png', 'icon.svg'],
         manifest: {
           id: '/',
-          name: 'Perto - Conexões Próximas',
-          short_name: 'Perto',
+          name: 'New Friends.br - Conexões Próximas',
+          short_name: 'New Friends.br',
           description: 'App de relacionamentos por geolocalização que conecta pessoas fisicamente próximas em tempo real.',
           theme_color: '#0284c7',
           background_color: '#ffffff',
@@ -51,8 +51,7 @@ export default defineConfig(() => {
           ]
         },
         devOptions: {
-          enabled: true,
-          type: 'module'
+          enabled: false
         }
       })
     ],

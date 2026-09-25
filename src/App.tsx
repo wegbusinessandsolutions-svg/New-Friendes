@@ -4,7 +4,7 @@
  */
 
 import { HashRouter, Routes, Route, Navigate, Link, useLocation, Outlet } from 'react-router-dom';
-import { useEffect, useState, useRef, lazy, Suspense } from 'react';
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType, perf } from './lib/firebase';
 import { doc, getDoc, onSnapshot, setDoc, collection, addDoc } from 'firebase/firestore';
@@ -63,7 +63,7 @@ export default function App() {
     faceVerificationRequired: false
   });
 
-  const handleDiscoverStart = () => {
+  const handleDiscoverStart = useCallback(() => {
     if (!perf) return;
     try {
       if (!discoverTraceRef.current) {
@@ -75,9 +75,9 @@ export default function App() {
     } catch (err) {
       console.warn('Erro ao iniciar trace do Discover:', err);
     }
-  };
+  }, []);
 
-  const handleDiscoverEnd = () => {
+  const handleDiscoverEnd = useCallback(() => {
     try {
       if (discoverTraceRef.current) {
         discoverTraceRef.current.stop();
@@ -87,9 +87,9 @@ export default function App() {
     } catch (err) {
       console.warn('Erro ao parar trace do Discover:', err);
     }
-  };
+  }, []);
 
-  const handleChatsStart = () => {
+  const handleChatsStart = useCallback(() => {
     if (!perf) return;
     try {
       if (!connectionsTraceRef.current) {
@@ -101,9 +101,9 @@ export default function App() {
     } catch (err) {
       console.warn('Erro ao iniciar trace de Conexões:', err);
     }
-  };
+  }, []);
 
-  const handleChatsEnd = () => {
+  const handleChatsEnd = useCallback(() => {
     try {
       if (connectionsTraceRef.current) {
         connectionsTraceRef.current.stop();
@@ -113,7 +113,7 @@ export default function App() {
     } catch (err) {
       console.warn('Erro ao parar trace de Conexões:', err);
     }
-  };
+  }, []);
 
   const [appConfig, setAppConfig] = useState<any>({
     maintenanceMode: false,
@@ -488,9 +488,9 @@ export default function App() {
     };
   }, [user, hasProfile]);
 
-  // Register Service Worker for PWA / background support
+  // Register Service Worker for PWA / background support (only in production to prevent dev reload loops)
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if (import.meta.env.PROD && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((reg: any) => {
           console.log('[Service Worker] Registered successfully with scope:', reg.scope);

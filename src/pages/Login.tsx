@@ -187,33 +187,32 @@ export default function Login() {
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full opacity-50"></div>
         <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-indigo-50 rounded-full opacity-50"></div>
 
-        {!isRegister && (
-          <div className="relative z-10 w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg mb-6">
-            <div className="w-10 h-10 border-[4px] border-indigo-600 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-indigo-600 rounded-full"></div>
-            </div>
+        {/* App Logomarca & Identity */}
+        <div className="relative z-10 flex items-center gap-3.5 mb-6">
+          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-slate-100 p-1 shrink-0 overflow-hidden">
+            <img 
+              src="/pwa-192x192.png" 
+              alt="Logomarca New Friends" 
+              className="w-full h-full object-contain rounded-xl"
+            />
           </div>
-        )}
+          <div>
+            <div className="text-2xl font-black tracking-tight text-indigo-600 flex items-center gap-1.5 font-friendly">
+              <span>New Friends<span className="text-emerald-500">.br</span></span>
+              <img src="https://flagcdn.com/w40/br.png" alt="Brasil" className="w-5 h-auto rounded-sm object-cover" />
+            </div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              Conexões por Proximidade
+            </p>
+          </div>
+        </div>
         
         <div className="relative z-10 space-y-2 mb-8">
           <div className="flex gap-2 mb-4">
             <div className="h-1 w-12 bg-indigo-600 rounded-full"></div>
             <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
           </div>
-          {isRegister && (
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-md border border-slate-100">
-                <div className="w-4 h-4 border-[3px] border-indigo-600 rounded-full flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 bg-indigo-600 rounded-full"></div>
-                </div>
-              </div>
-              <div className="text-xl font-semibold tracking-tight text-indigo-600 flex items-center gap-2 font-friendly">
-                <span>New Friends<span className="text-emerald-500">.br</span></span>
-                <img src="https://flagcdn.com/w40/br.png" alt="Brasil" className="w-6 h-auto rounded-sm object-cover" />
-              </div>
-            </div>
-          )}
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center justify-start gap-4">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center justify-start gap-4">
             {isRegister ? 'Crie sua conta' : (
               <span>Acesse o New Friends<span className="text-emerald-500">.br</span></span>
             )}
@@ -221,7 +220,7 @@ export default function Login() {
           <p className="text-slate-500 text-sm leading-relaxed">
             {isRegister 
                ? 'Preencha seu e-mail e senha para iniciar sua jornada.' 
-               : 'Conecte-se com pessoas próximas a você e construa amizades reais.'}
+               : 'Conecte-se com pessoas próximas a você e construa conexões reais.'}
           </p>
         </div>
 
