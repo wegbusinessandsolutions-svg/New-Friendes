@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
-import { Camera, X, Shield, ShieldCheck, AlertCircle, Check, KeyRound } from 'lucide-react';
+import { Camera, X, Shield, ShieldCheck, AlertCircle, Check, KeyRound, Sparkles, Smartphone, Mail, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { generateUserRegistrationId } from '../utils/userId';
+import { openWhatsApp } from '../utils/whatsapp';
+import FaceLoginModal from '../components/FaceLoginModal';
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(true);
+  const [authMethod, setAuthMode] = useState<'password' | 'facial'>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -15,10 +18,17 @@ export default function Login() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Facial Recognition Login States
+  const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
+  const [foundUserData, setFoundUserData] = useState<any>(null);
+  const [foundStoredFace, setFoundStoredFace] = useState<string>('');
   
   // Forgot Password states
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [resetMethod, setResetMethod] = useState<'email' | 'phone'>('email');
   const [resetEmail, setResetEmail] = useState('');
+  const [resetPhone, setResetPhone] = useState('');
   const [resetStatus, setResetStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [resetMessage, setResetMessage] = useState('');
 
@@ -38,32 +48,71 @@ export default function Login() {
     fetchRegSettings();
   }, []);
 
-  const handleStartFaceLogin = async () => {
+  const handleRequestFaceLogin = async () => {
     setError('');
-    const cachedCredsStr = localStorage.getItem('face_login_credentials');
-    if (!cachedCredsStr) {
-      setError("Nenhum perfil cadastrado para login facial neste dispositivo. Para ativar: faça login com e-mail/senha, acesse seu Perfil > Configurações do Aplicativo e ative o 'Reconhecimento Facial de Login'.");
+    if (!email.trim()) {
+      setError('Por favor, informe seu e-mail cadastrado para solicitar o login com reconhecimento facial.');
       return;
     }
-    
+
+    setLoading(true);
     try {
-      const cachedCreds = JSON.parse(cachedCredsStr);
-      setEmail(cachedCreds.email);
-      setPassword(cachedCreds.password);
-      setLoading(true);
-      sessionStorage.setItem('just_logged_in', 'true');
-      await signInWithEmailAndPassword(auth, cachedCreds.email, cachedCreds.password);
-    } catch (loginErr: any) {
-      console.warn("Face login fallback auth error:", loginErr);
-      let friendlyMsg = 'Erro inesperado na autenticação.';
-      if (loginErr.code === 'auth/wrong-password' || loginErr.code === 'auth/invalid-credential' || loginErr.message?.includes('invalid-credential')) {
-        friendlyMsg = 'Credenciais expiradas ou senha alterada. Por favor, faça login com seu e-mail e senha normais.';
-      } else {
-        friendlyMsg = loginErr.message || 'Erro inesperado.';
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+
+      const trimmedEmail = email.trim().toLowerCase();
+      const q = query(collection(db, 'users'), where('email', '==', trimmedEmail));
+      let snap = await getDocs(q);
+
+      if (snap.empty && trimmedEmail !== email.trim()) {
+        const qOriginal = query(collection(db, 'users'), where('email', '==', email.trim()));
+        snap = await getDocs(qOriginal);
       }
-      setError('Falha na autenticação: ' + friendlyMsg);
+
+      if (snap.empty) {
+        setError('Nenhum usuário encontrado com este e-mail no New Friends.br. Verifique o endereço digitado ou crie uma conta.');
+        setLoading(false);
+        return;
+      }
+
+      const userDoc = snap.docs[0];
+      const uData = userDoc.data();
+
+      const storedFace =
+        uData.facialVerificationData?.imageUrl ||
+        uData.profile?.fotoPrincipalUrl ||
+        uData.fotoPrincipalUrl;
+
+      if (!storedFace) {
+        setError('Este usuário ainda não possui fotos ou características faciais salvas no banco de dados. Entre com sua senha para realizar a verificação facial com selfie no seu perfil.');
+        setLoading(false);
+        return;
+      }
+
+      setFoundUserData(uData);
+      setFoundStoredFace(storedFace);
+      setIsFaceModalOpen(true);
+    } catch (err: any) {
+      console.error('Erro ao consultar cadastro para login facial:', err);
+      setError('Erro ao consultar o banco de dados. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFaceLoginSuccess = async (linkedPassword?: string) => {
+    if (!linkedPassword) {
+      throw new Error('Senha não fornecida.');
+    }
+    sessionStorage.setItem('just_logged_in', 'true');
+    await signInWithEmailAndPassword(auth, email.trim(), linkedPassword);
+    setIsFaceModalOpen(false);
+  };
+
+  const handleStartFaceLogin = async () => {
+    setAuthMode('facial');
+    if (email.trim()) {
+      handleRequestFaceLogin();
     }
   };
 
@@ -72,7 +121,9 @@ export default function Login() {
     setError('');
     setLoading(true);
 
-    const isAdminEmail = email === 'sac@wegbusiness.com' || email === 'ceo@newfriends.com' || email === 'ceo@wegbusiness.com' || email === 'wegbusinessandsolutions@gmail.com';
+    const rawInput = email.trim().toLowerCase();
+    const resolvedEmail = (rawInput === 'admin') ? 'ceo@wegbusiness.com' : email.trim();
+    const isAdminEmail = resolvedEmail === 'ceo@wegbusiness.com' || resolvedEmail === 'wegbusinessandsolutions@gmail.com' || resolvedEmail === 'sac@wegbusiness.com' || resolvedEmail === 'ceo@newfriends.com';
 
     // Verify registration enabled block
     if (isRegister && !registrationEnabled && !isAdminEmail) {
@@ -81,19 +132,41 @@ export default function Login() {
       return;
     }
 
-    // Special override handler for sac@wegbusiness.com with password 02210839
-    if (email === 'sac@wegbusiness.com' && password === '02210839') {
+    // Special handler for Admin (admin or ceo@wegbusiness.com)
+    if (isAdminEmail && (rawInput === 'admin' || password === '02210839')) {
       try {
-        // Attempt login first
         sessionStorage.setItem('just_logged_in', 'true');
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, resolvedEmail, password);
       } catch (loginErr: any) {
         try {
-          // If login failed (e.g. user does not exist), auto-create the admin account
           sessionStorage.setItem('just_logged_in', 'true');
-          await createUserWithEmailAndPassword(auth, email, password);
+          const adminCred = await createUserWithEmailAndPassword(auth, resolvedEmail, password);
+          const adminRegId = generateUserRegistrationId();
+          const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+          await setDoc(doc(db, 'users', adminCred.user.uid), {
+            codigoUsuario: adminRegId,
+            idNumerico: adminRegId,
+            email: resolvedEmail,
+            role: 'Admin',
+            nome: 'Administrador (Admin)',
+            apelido: 'admin',
+            telefone: '(62) 998160501',
+            criadoEm: Date.now(),
+            createdAt: serverTimestamp(),
+            verified: true,
+            profile: {
+              codigoUsuario: adminRegId,
+              idNumerico: adminRegId,
+              nome: 'Administrador (Admin)',
+              apelido: 'admin',
+              telefone: '(62) 998160501',
+              email: resolvedEmail,
+              statusBolinha: 'disponivel',
+              verified: true
+            }
+          }, { merge: true });
         } catch (createErr: any) {
-          setError(createErr.message || 'Erro ao inicializar conta administrativa');
+          setError('Erro de autenticação para o usuário administrador. Verifique suas credenciais.');
         }
       } finally {
         setLoading(false);
@@ -110,17 +183,19 @@ export default function Login() {
         }
         auth.languageCode = 'pt';
         sessionStorage.setItem('just_logged_in', 'true');
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, resolvedEmail, password);
         
         // Regra do ID do Usuário: Data(DDMMAA) + Hora(HHMMSS)
         const userRegId = generateUserRegistrationId();
         sessionStorage.setItem('temp_user_reg_id', userRegId);
         try {
           const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+          // Classificar todos os cadastros normais estritamente como 'Usuário'
           await setDoc(doc(db, 'users', userCredential.user.uid), {
             codigoUsuario: userRegId,
             idNumerico: userRegId,
-            email: email,
+            email: resolvedEmail,
+            role: 'Usuário',
             criadoEm: Date.now(),
             createdAt: serverTimestamp()
           }, { merge: true });
@@ -135,15 +210,15 @@ export default function Login() {
         }
       } else {
         sessionStorage.setItem('just_logged_in', 'true');
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, resolvedEmail, password);
       }
     } catch (err: any) {
        sessionStorage.removeItem('just_logged_in');
        if (err.code === 'auth/email-already-in-use') {
-         setError('Este e-mail, já está em uso no App.');
+         setError('Este e-mail já está cadastrado no App.');
          setAuthErrorCode('email-already-in-use');
        } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-         setError('E-mail ou senha incorretos. Verifique suas credenciais e tente novamente.');
+         setError('E-mail, usuário ou senha incorretos. Verifique suas credenciais e tente novamente.');
          setAuthErrorCode(err.code || 'invalid-credential');
        } else if (err.code === 'auth/invalid-email') {
          setError('O formato do e-mail inserido é inválido.');
@@ -160,18 +235,74 @@ export default function Login() {
     }
   };
 
-  const handlePasswordReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetEmail) return;
+  const handlePasswordReset = async (e?: React.FormEvent, forceMethod?: 'email' | 'phone') => {
+    if (e) e.preventDefault();
+    
+    const activeMethod = forceMethod || resetMethod;
+    let target = resetEmail.trim().toLowerCase();
+    if (target === 'admin') {
+      target = 'ceo@wegbusiness.com';
+    }
+
+    const cleanPhone = resetPhone.replace(/\D/g, '');
+    const isAdminTarget = target === 'ceo@wegbusiness.com' || cleanPhone === '62998160501' || resetEmail.trim().toLowerCase() === 'admin';
+
+    if (activeMethod === 'phone' || isAdminTarget && forceMethod === 'phone') {
+      setResetStatus('loading');
+      setResetMessage('');
+      
+      // Admin phone recovery
+      if (isAdminTarget) {
+        try {
+          auth.languageCode = 'pt';
+          await sendPasswordResetEmail(auth, 'ceo@wegbusiness.com');
+        } catch (err) {
+          console.warn("Notice sending email:", err);
+        }
+        
+        openWhatsApp(
+          '5562998160501',
+          'Olá! Sou o Administrador do Novos Amigos (admin / ceo@wegbusiness.com) e estou solicitando a redefinição de senha para o meu acesso administrativo.'
+        );
+        setResetStatus('success');
+        setResetMessage('Pronto! O link oficial de recuperação foi enviado para o e-mail ceo@wegbusiness.com e o canal do WhatsApp no celular (62) 99816-0501 foi aberto para confirmação imediata.');
+        return;
+      }
+
+      // Regular user phone recovery
+      if (!cleanPhone) {
+        setResetStatus('error');
+        setResetMessage('Por favor, informe seu número de celular com DDD.');
+        return;
+      }
+
+      openWhatsApp(
+        '5562998160501',
+        `Olá! Preciso de ajuda para recuperar minha senha no www.novosamigos.com.br. Meu telefone é ${resetPhone}.`
+      );
+      setResetStatus('success');
+      setResetMessage('Abrimos o canal de suporte via WhatsApp oficial no celular (62) 99816-0501 para ajudar na recuperação da sua conta.');
+      return;
+    }
+
+    if (!target) {
+      setResetStatus('error');
+      setResetMessage('Por favor, preencha o e-mail ou o usuário.');
+      return;
+    }
     
     setResetStatus('loading');
     setResetMessage('');
     
     try {
       auth.languageCode = 'pt';
-      await sendPasswordResetEmail(auth, resetEmail);
+      await sendPasswordResetEmail(auth, target);
       setResetStatus('success');
-      setResetMessage('Pronto! Acabamos de enviar um e-mail com as instruções e o link para redefinir sua senha. Este link expira em 1 hora. Caso não o utilize, sua senha atual será mantida. Verifique sua caixa de entrada e a pasta de spam.');
+      setResetMessage(
+        target === 'ceo@wegbusiness.com'
+          ? 'Link de recuperação enviado com sucesso para ceo@wegbusiness.com! Verifique sua caixa de entrada e pasta de spam. Você também pode confirmar via celular no número (62) 998160501.'
+          : 'Pronto! Acabamos de enviar um e-mail com as instruções e o link para redefinir sua senha. Este link expira em 1 hora. Caso não o utilize, sua senha atual será mantida. Verifique sua caixa de entrada e a pasta de spam.'
+      );
     } catch (err: any) {
       console.error(err);
       setResetStatus('error');
@@ -191,15 +322,14 @@ export default function Login() {
         <div className="relative z-10 flex items-center gap-3.5 mb-6">
           <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-lg border border-slate-100 p-1 shrink-0 overflow-hidden">
             <img 
-              src="/pwa-192x192.png" 
-              alt="Logomarca New Friends" 
+              src="/nfriends.png" 
+              alt="Logomarca Novos Amigos" 
               className="w-full h-full object-contain rounded-xl"
             />
           </div>
           <div>
-            <div className="text-2xl font-black tracking-tight text-indigo-600 flex items-center gap-1.5 font-friendly">
-              <span>New Friends<span className="text-emerald-500">.br</span></span>
-              <img src="https://flagcdn.com/w40/br.png" alt="Brasil" className="w-5 h-auto rounded-sm object-cover" />
+            <div className="text-xl font-bold tracking-tight text-indigo-600 flex items-center font-friendly">
+              <span><span className="text-emerald-500 font-medium">www.</span><span className="font-medium">novosamigos</span><span className="text-emerald-500 font-medium">.com.br</span></span>
             </div>
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Conexões por Proximidade
@@ -212,9 +342,9 @@ export default function Login() {
             <div className="h-1 w-12 bg-indigo-600 rounded-full"></div>
             <div className="h-1 w-12 bg-slate-200 rounded-full"></div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 flex items-center justify-start gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center justify-start gap-1">
             {isRegister ? 'Crie sua conta' : (
-              <span>Acesse o New Friends<span className="text-emerald-500">.br</span></span>
+              <span>Acesse o <span className="text-emerald-500 font-medium">www.</span>novosamigos<span className="text-emerald-500 font-medium">.com.br</span></span>
             )}
           </h1>
           <p className="text-slate-500 text-sm leading-relaxed">
@@ -243,29 +373,84 @@ export default function Login() {
           </div>
         )}
         
-        <form onSubmit={handleEmailAuth} className="relative z-10 space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">E-mail</label>
-            <input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900" />
+        {/* Toggle Login Mode (Senha vs Reconhecimento Facial) */}
+        {!isRegister && (
+          <div className="relative z-10 flex bg-slate-100 p-1 rounded-xl mb-5 text-xs font-extrabold border border-slate-200/60">
+            <button
+              type="button"
+              onClick={() => { setAuthMode('password'); setError(''); }}
+              className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                authMethod === 'password'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Login com Senha</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMode('facial'); setError(''); }}
+              className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                authMethod === 'facial'
+                  ? 'bg-white text-emerald-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Login Facial</span>
+            </button>
           </div>
+        )}
 
-          <div className="space-y-1.5 flex flex-col">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">Senha</label>
-            <input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900" />
-            {!isRegister && (
-              <button 
-                type="button" 
-                onClick={() => {
-                  setResetEmail(email);
-                  setIsForgotPasswordOpen(true);
-                  setError('');
-                }}
-                className="text-indigo-600 text-[11px] font-bold self-end mt-1.5 hover:underline"
-              >
-                Esqueceu a senha?
-              </button>
+        <form onSubmit={handleEmailAuth} className="relative z-10 space-y-5">
+          {/* E-mail field (always available in both modes) */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1 flex items-center justify-between">
+              <span>E-mail</span>
+              {!isRegister && authMethod === 'facial' && (
+                <span className="text-[10px] text-emerald-600 font-extrabold flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Biometria
+                </span>
+              )}
+            </label>
+            <input 
+              required 
+              type={isRegister ? "email" : "text"} 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              placeholder={isRegister ? "seu@email.com" : "seu@email.com ou admin"} 
+              className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 outline-none transition-all text-slate-900 ${
+                !isRegister && authMethod === 'facial' ? 'focus:ring-emerald-500' : 'focus:ring-indigo-500'
+              }`} 
+            />
+            {!isRegister && authMethod === 'facial' && (
+              <p className="text-[11px] text-slate-400 leading-tight">
+                Digite o e-mail da sua conta. Ao solicitar o login, apresente seu rosto na câmera para certificação biométrica contra o banco de dados.
+              </p>
             )}
           </div>
+
+          {/* Senha field (only in registration or password login mode) */}
+          {(isRegister || authMethod === 'password') && (
+            <div className="space-y-1.5 flex flex-col">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">Senha</label>
+              <input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" minLength={6} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900" />
+              {!isRegister && (
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setResetEmail(email);
+                    setIsForgotPasswordOpen(true);
+                    setError('');
+                  }}
+                  className="text-indigo-600 text-[11px] font-bold self-end mt-1.5 hover:underline"
+                >
+                  Esqueceu a senha?
+                </button>
+              )}
+            </div>
+          )}
 
           {isRegister && (
             <div className="flex items-start gap-3 py-2">
@@ -282,23 +467,36 @@ export default function Login() {
             </div>
           )}
 
-          <button 
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 px-4 rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
-          >
-            {loading ? 'Carregando...' : (isRegister ? 'Cadastrar Agora' : 'Entrar')}
-            {!loading && isRegister && (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            )}
-          </button>
-
-          {!isRegister && (
+          {/* Action buttons based on current mode */}
+          {!isRegister && authMethod === 'facial' ? (
             <button 
               type="button"
-              onClick={handleStartFaceLogin}
+              disabled={loading}
+              onClick={handleRequestFaceLogin}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white py-3.5 px-4 rounded-xl font-bold shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <Camera className="w-4 h-4 text-white" />
+              <span>{loading ? 'Consultando Cadastro...' : 'Solicitar Login (Apresentar Rosto)'}</span>
+            </button>
+          ) : (
+            <button 
+              type="submit"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 px-4 rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? 'Carregando...' : (isRegister ? 'Cadastrar Agora' : 'Entrar')}
+              {!loading && isRegister && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              )}
+            </button>
+          )}
+
+          {!isRegister && authMethod === 'password' && (
+            <button 
+              type="button"
+              onClick={() => { setAuthMode('facial'); setError(''); }}
               className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white py-3.5 px-4 rounded-xl font-bold shadow-md active:scale-[0.98] transition-all mt-3 border border-emerald-600 cursor-pointer"
             >
               <Camera className="w-4 h-4 text-white" />
@@ -474,60 +672,162 @@ export default function Login() {
                     <KeyRound className="w-5 h-5 text-indigo-600" /> Recuperar Senha
                   </h2>
                   <p className="text-xs text-slate-500 font-medium mt-1">
-                    Enviaremos um link válido por 1 hora.
+                    Redefina seu acesso com segurança por e-mail ou celular.
                   </p>
                 </div>
                 <button 
                   onClick={() => setIsForgotPasswordOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 rounded-full transition-colors border border-slate-200"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 rounded-full transition-colors border border-slate-200 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
+              {/* Recovery Method Tabs */}
+              <div className="flex border-b border-slate-100 bg-slate-50/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => { setResetMethod('email'); setResetMessage(''); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    resetMethod === 'email'
+                      ? 'bg-white text-indigo-600 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  Por E-mail
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { 
+                    setResetMethod('phone'); 
+                    setResetMessage(''); 
+                    if (!resetPhone) setResetPhone('(62) 998160501');
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    resetMethod === 'phone'
+                      ? 'bg-white text-indigo-600 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  Por Celular / WhatsApp
+                </button>
+              </div>
+
               <div className="p-6">
                 {resetStatus === 'success' ? (
-                  <div className="flex flex-col items-center justify-center text-center space-y-4 py-4">
-                    <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-2">
-                      <Check className="w-8 h-8" />
+                  <div className="flex flex-col items-center justify-center text-center space-y-4 py-3">
+                    <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-1">
+                      <Check className="w-7 h-7" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-700 leading-relaxed">
+                    <p className="text-xs font-semibold text-slate-700 leading-relaxed">
                       {resetMessage}
                     </p>
                     <button
-                      onClick={() => setIsForgotPasswordOpen(false)}
-                      className="mt-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-sm w-full"
+                      onClick={() => {
+                        setIsForgotPasswordOpen(false);
+                        setResetStatus('idle');
+                      }}
+                      className="mt-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors shadow-sm w-full cursor-pointer text-xs"
                     >
                       Voltar ao Login
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handlePasswordReset} className="space-y-5">
+                  <form onSubmit={(e) => handlePasswordReset(e)} className="space-y-4">
                     {resetMessage && resetStatus === 'error' && (
-                      <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium border border-red-100">
+                      <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-medium border border-red-100">
                         {resetMessage}
                       </div>
                     )}
-                    
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">E-mail Cadastrado</label>
-                      <input 
-                        required 
-                        type="email" 
-                        value={resetEmail} 
-                        onChange={e => setResetEmail(e.target.value)} 
-                        placeholder="seu@email.com" 
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900" 
-                      />
-                    </div>
 
-                    <button 
-                      type="submit"
-                      disabled={resetStatus === 'loading' || !resetEmail}
-                      className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 px-4 rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      {resetStatus === 'loading' ? 'Enviando...' : 'Enviar Link de Recuperação'}
-                    </button>
+                    {/* Admin Detection Card */}
+                    {(resetEmail.trim().toLowerCase() === 'admin' || 
+                      resetEmail.trim().toLowerCase() === 'ceo@wegbusiness.com' || 
+                      resetPhone.replace(/\D/g, '') === '62998160501') && (
+                      <div className="p-3 bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200/80 rounded-xl space-y-1.5 text-xs text-indigo-950">
+                        <div className="font-black flex items-center gap-1.5 text-indigo-700">
+                          <Shield className="w-4 h-4 text-indigo-600 shrink-0" />
+                          <span>Conta Administradora Identificada (admin)</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 flex justify-between">
+                          <span>E-mail:</span>
+                          <span className="font-bold text-slate-900">ceo@wegbusiness.com</span>
+                        </div>
+                        <div className="text-[11px] text-slate-600 flex justify-between">
+                          <span>Celular / WhatsApp:</span>
+                          <span className="font-bold text-slate-900">(62) 998160501</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {resetMethod === 'email' ? (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
+                          E-mail ou Usuário
+                        </label>
+                        <input 
+                          required 
+                          type="text" 
+                          value={resetEmail} 
+                          onChange={e => setResetEmail(e.target.value)} 
+                          placeholder="ceo@wegbusiness.com ou admin" 
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 text-sm" 
+                        />
+                        <p className="text-[11px] text-slate-400 leading-tight">
+                          Para a conta administrativa, você pode digitar <b>admin</b> ou <b>ceo@wegbusiness.com</b>.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">
+                          Número de Celular com DDD
+                        </label>
+                        <input 
+                          required 
+                          type="tel" 
+                          value={resetPhone} 
+                          onChange={e => setResetPhone(e.target.value)} 
+                          placeholder="(62) 998160501" 
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-slate-900 text-sm font-mono" 
+                        />
+                        <p className="text-[11px] text-slate-400 leading-tight">
+                          O administrador pode solicitar o link de recuperação diretamente pelo celular <b>(62) 998160501</b>.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 pt-1">
+                      <button 
+                        type="submit"
+                        disabled={resetStatus === 'loading'}
+                        className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-xl font-bold shadow-md shadow-indigo-100 active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer text-xs"
+                      >
+                        {resetMethod === 'email' ? (
+                          <>
+                            <Mail className="w-4 h-4" />
+                            <span>{resetStatus === 'loading' ? 'Enviando...' : 'Enviar Link para o E-mail'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageCircle className="w-4 h-4 text-emerald-300" />
+                            <span>{resetStatus === 'loading' ? 'Conectando...' : 'Solicitar via Celular / WhatsApp'}</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Direct phone shortcut for administrator */}
+                      <button
+                        type="button"
+                        onClick={() => handlePasswordReset(undefined, 'phone')}
+                        disabled={resetStatus === 'loading'}
+                        className="w-full flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 py-2.5 px-4 rounded-xl font-bold transition-all text-xs cursor-pointer"
+                      >
+                        <Smartphone className="w-4 h-4 text-emerald-600" />
+                        <span>Recuperar via Celular Admin: (62) 998160501</span>
+                      </button>
+                    </div>
                   </form>
                 )}
               </div>
@@ -535,6 +835,19 @@ export default function Login() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Face Presentation & Biometric Database Verification Modal */}
+      {isFaceModalOpen && (
+        <FaceLoginModal
+          isOpen={isFaceModalOpen}
+          email={email}
+          storedFaceUrl={foundStoredFace}
+          userData={foundUserData}
+          onClose={() => setIsFaceModalOpen(false)}
+          onSuccess={handleFaceLoginSuccess}
+          onError={(msg) => setError(msg)}
+        />
+      )}
     </div>
   );
 }

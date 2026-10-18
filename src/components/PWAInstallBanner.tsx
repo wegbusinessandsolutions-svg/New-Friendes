@@ -50,7 +50,7 @@ export default function PWAInstallBanner() {
           <div className="flex items-center gap-3 pr-6">
             <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-800 shadow-md border border-slate-100 dark:border-slate-700/60 p-1 shrink-0 overflow-hidden flex items-center justify-center">
               <img
-                src="/pwa-192x192.png"
+                src="/nfriends.png"
                 alt="Ícone do Aplicativo New Friends"
                 className="w-full h-full object-contain rounded-lg"
               />
@@ -58,7 +58,7 @@ export default function PWAInstallBanner() {
             <div>
               <div className="flex items-center gap-1.5">
                 <h3 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">
-                  Instalar o New Friends.br
+                  Instalar o www.novosamigos.com.br
                 </h3>
                 <span className="bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/60">
                   App PWA
@@ -108,7 +108,7 @@ export default function PWAInstallBanner() {
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 text-center">
             <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-950/60 rounded-2xl flex items-center justify-center mx-auto text-indigo-600 dark:text-indigo-400 shadow-sm">
               <img
-                src="/pwa-192x192.png"
+                src="/nfriends.png"
                 alt="New Friends"
                 className="w-10 h-10 object-contain rounded-xl"
               />

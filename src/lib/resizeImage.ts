@@ -1,4 +1,9 @@
-export const resizeImage = (file: File): Promise<string> => {
+export const resizeImage = (
+  file: File,
+  maxWidth = 500,
+  maxHeight = 500,
+  quality = 0.8
+): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -6,8 +11,8 @@ export const resizeImage = (file: File): Promise<string> => {
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 500;
-          const MAX_HEIGHT = 500;
+          const MAX_WIDTH = maxWidth;
+          const MAX_HEIGHT = maxHeight;
           let width = img.width;
           let height = img.height;
 

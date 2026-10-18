@@ -27,12 +27,14 @@ import {
   Camera,
   Compass,
   Clock,
-  RefreshCw
+  RefreshCw,
+  CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { getUserRegistrationId } from '../utils/userId';
 import ZodiacBadge from '../components/ZodiacBadge';
+import AdminSubscriptionsTab from '../components/admin/AdminSubscriptionsTab';
 
 interface CrmUser {
   id: string;
@@ -79,7 +81,7 @@ export default function AdminCRM() {
   const [filterSexo, setFilterSexo] = useState('');
   const [filterDataNasc, setFilterDataNasc] = useState('');
   const [filterCidade, setFilterCidade] = useState('');
-  const [activeTab, setActiveTab] = useState<'users' | 'settings' | 'reports'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'subscriptions' | 'settings' | 'reports'>('users');
   const [appConfig, setAppConfig] = useState({
     maintenanceMode: false,
     registrationEnabled: true,
@@ -572,6 +574,29 @@ export default function AdminCRM() {
     return matchSearch && matchSexo && matchDataNasc && matchCidade;
   });
 
+  const currentEmail = auth.currentUser?.email?.toLowerCase().trim();
+  const isAdminUser = currentEmail === 'ceo@wegbusiness.com' || currentEmail === 'wegbusinessandsolutions@gmail.com' || currentEmail === 'sac@wegbusiness.com' || currentEmail === 'ceo@newfriends.com';
+
+  if (!auth.currentUser || !isAdminUser) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
+        <div className="p-4 bg-rose-100 text-rose-600 rounded-2xl mb-4">
+          <Shield className="w-10 h-10" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800">Acesso Restrito ao Administrador</h2>
+        <p className="text-sm text-slate-500 mt-2 max-w-sm">
+          O painel de CRM é de uso exclusivo para o usuário Administrador (admin).
+        </p>
+        <button
+          onClick={() => navigate('/')}
+          className="mt-6 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-sm hover:bg-indigo-700 transition-colors cursor-pointer"
+        >
+          Voltar para o Início
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col font-sans p-4 min-h-screen bg-slate-50">
       
@@ -600,34 +625,40 @@ export default function AdminCRM() {
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex border-b border-slate-200 mb-6 bg-white rounded-xl p-1 shadow-sm border">
+      <div className="flex border-b border-slate-200 mb-6 bg-white rounded-xl p-1 shadow-sm border overflow-x-auto">
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          className={`flex-1 min-w-[120px] py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
         >
           <Users className="w-4 h-4" />
-          Usuários Cadastrados
+          Usuários
+        </button>
+        <button
+          onClick={() => setActiveTab('subscriptions')}
+          className={`flex-1 min-w-[170px] py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'subscriptions' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+        >
+          <CreditCard className="w-4 h-4 text-emerald-400" />
+          Assinaturas & CRM
         </button>
         <button
           onClick={() => setActiveTab('settings')}
-          className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          className={`flex-1 min-w-[130px] py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
         >
           <Settings className="w-4 h-4" />
-          Configurações do App
+          Configurações
         </button>
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex-1 py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'reports' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+          className={`flex-1 min-w-[120px] py-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'reports' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
         >
           <AlertCircle className="w-4 h-4 text-rose-500" />
-          Denúncias Perfil
+          Denúncias
           {reports.filter(r => r.status === 'pendente').length > 0 && (
             <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">
               {reports.filter(r => r.status === 'pendente').length}
             </span>
           )}
         </button>
-
       </div>
 
       {activeTab === 'users' ? (
@@ -996,6 +1027,8 @@ export default function AdminCRM() {
             </div>
           )}
         </>
+      ) : activeTab === 'subscriptions' ? (
+        <AdminSubscriptionsTab users={users} onRefreshUsers={fetchUsers} />
       ) : activeTab === 'settings' ? (
         /* Settings Tab (Global Controls) */
         <div className="space-y-4 pb-24">

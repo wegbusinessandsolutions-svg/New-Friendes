@@ -43,7 +43,7 @@ import {
   Store,
   Navigation,
   Loader2,
-  Camera, Shield, Share2,
+  Camera, Shield, ShieldAlert, Share2,
   Gift, Sparkles, RotateCcw
 } from 'lucide-react';
 
@@ -2095,6 +2095,45 @@ export default function ChatRoom() {
                 <p className="text-[10px] text-slate-400">
                   Envie este link para um amigo de confiança para que ele acompanhe sua localização em tempo real durante o encontro.
                 </p>
+              </div>
+
+              {/* Acionar Alerta de Emergência informando que está com este contato */}
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-red-600 text-white flex items-center justify-center shrink-0">
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-[11px] font-black text-red-900 dark:text-red-300 uppercase tracking-wider">
+                      Alerta de Emergência (SOS) no Encontro
+                    </h4>
+                    <p className="text-[10px] text-red-700 dark:text-red-400 font-medium">
+                      Precisa de socorro imediato? Acione o alerta no WhatsApp informando que você está com este contato.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSafetyModal(false);
+                    const compName = friendProfile?.profile?.nome || friendProfile?.profile?.apelido || 'Contato do Chat';
+                    window.dispatchEvent(new CustomEvent('open_sos_with_companion', {
+                      detail: {
+                        id: friendId || '',
+                        nome: compName,
+                        apelido: friendProfile?.profile?.apelido || '',
+                        telefone: friendProfile?.profile?.telefone || '',
+                        fotoUrl: friendProfile?.profile?.fotoPrincipalUrl || '',
+                        idade: friendProfile?.profile?.idade || ''
+                      }
+                    }));
+                  }}
+                  className="w-full py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer"
+                >
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>Acionar Alerta SOS Informando que Estou com {friendProfile?.profile?.nome ? friendProfile.profile.nome.split(' ')[0] : 'este Contato'}</span>
+                </button>
               </div>
             </div>
 

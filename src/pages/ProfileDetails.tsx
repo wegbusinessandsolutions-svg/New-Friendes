@@ -150,6 +150,7 @@ import {
   Check,
   ChevronRight,
   Shield,
+  ShieldAlert,
   ShieldCheck,
   BadgeCheck,
   Camera,
@@ -172,10 +173,19 @@ import {
   Moon,
   Lock,
   Battery,
-  BatteryCharging
+  BatteryCharging,
+  CreditCard,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MOCK_USERS } from './Discover';
+import { 
+  evaluateUserSubscription, 
+  formatCurrencyBRL, 
+  BASE_PRICES, 
+  RENEWAL_PRICES 
+} from '../utils/subscription';
+import SubscriptionPaywallModal from '../components/SubscriptionPaywallModal';
 
 interface FloatingHeart {
   id: number;
@@ -297,6 +307,7 @@ export default function ProfileDetails() {
 
   // Profile Edit fields states
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [editNome, setEditNome] = useState('');
   const [editApelido, setEditApelido] = useState('');
   const [editDataNascimento, setEditDataNascimento] = useState('');
@@ -1448,12 +1459,14 @@ export default function ProfileDetails() {
         const credential = EmailAuthProvider.credential(currentUser.email, faceLoginPassword);
         await reauthenticateWithCredential(currentUser, credential);
         
-        localStorage.setItem('face_login_credentials', JSON.stringify({
+        const credPayload = JSON.stringify({
           email: currentUser.email,
           password: faceLoginPassword,
           userId: currentUser.uid,
           enabledAt: new Date().toISOString()
-        }));
+        });
+        localStorage.setItem('face_login_credentials', credPayload);
+        localStorage.setItem(`face_login_credentials_${currentUser.email.toLowerCase()}`, credPayload);
         
         await updateDoc(doc(db, 'users', currentUser.uid), {
           faceLoginEnabled: true
@@ -2711,6 +2724,132 @@ export default function ProfileDetails() {
                   </div>
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* Meu Plano & Assinatura (Mercado Pago) - Somente no Perfil Próprio */}
+        {isOwnProfile && profile && (() => {
+          const subEval = evaluateUserSubscription(profile, currentUser?.email);
+          const isFemale = subEval.genderCategory === 'female';
+          const annualPrice = isFemale ? BASE_PRICES.FEMALE : BASE_PRICES.MALE;
+          const renewalPrice = isFemale ? RENEWAL_PRICES.FEMALE : RENEWAL_PRICES.MALE;
+
+          return (
+            <div className="p-4 sm:p-5 bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 rounded-3xl text-white shadow-xl border border-indigo-500/30 relative overflow-hidden">
+              <div className="absolute -top-12 -right-12 w-44 h-44 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-indigo-600/50 border border-indigo-400/30 flex items-center justify-center text-amber-300 shadow-inner">
+                      <CreditCard className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-indigo-300 block">
+                        Plano & Anuidade
+                      </span>
+                      <h3 className="text-sm font-black text-white flex items-center gap-1.5">
+                        New Friends.br
+                        <span className="text-[10px] bg-indigo-500/40 text-indigo-200 border border-indigo-400/40 px-2 py-0.5 rounded-full font-bold">
+                          Mercado Pago
+                        </span>
+                      </h3>
+                    </div>
+                  </div>
+
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                    subEval.status === 'active' || subEval.status === 'lifetime_exempt'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : subEval.status === 'trial'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                  }`}>
+                    {subEval.status === 'lifetime_exempt'
+                      ? 'VIP Vitalício'
+                      : subEval.status === 'active'
+                      ? 'Ativo'
+                      : subEval.status === 'trial'
+                      ? 'Teste Gratuito'
+                      : 'Anuidade Pendente'}
+                  </span>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-200">
+                    <span className="flex items-center gap-1.5 text-indigo-200">
+                      <Clock className="w-4 h-4 text-amber-400" />
+                      Status Atual
+                    </span>
+                    <span className="text-amber-300 font-extrabold text-right">
+                      {subEval.reasonText}
+                    </span>
+                  </div>
+
+                  {subEval.status === 'trial' && (
+                    <div className="space-y-1 pt-1 border-t border-white/10">
+                      <div className="flex justify-between text-[11px] text-slate-300 font-medium">
+                        <span>Período de Teste Gratuito</span>
+                        <span className="font-bold text-white">
+                          {subEval.trialDaysRemaining} dias restantes de {subEval.trialDaysTotal}
+                        </span>
+                      </div>
+                      <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-amber-400 to-emerald-400 h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(100, Math.max(5, (subEval.trialDaysRemaining / subEval.trialDaysTotal) * 100))}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wide">
+                      Valor Anual ({isFemale ? 'Feminino' : 'Masculino'})
+                    </span>
+                    <div className="text-base font-black text-emerald-400">
+                      {formatCurrencyBRL(annualPrice)}
+                      <span className="text-[10px] text-slate-400 font-normal"> /ano</span>
+                    </div>
+                    <span className="text-[10px] text-slate-300 block">
+                      30 dias grátis + 1 ano de uso
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wide">
+                      Renovação (+50%)
+                    </span>
+                    <div className="text-base font-black text-amber-300">
+                      {formatCurrencyBRL(renewalPrice)}
+                      <span className="text-[10px] text-slate-400 font-normal"> /ano</span>
+                    </div>
+                    <span className="text-[10px] text-slate-300 block">
+                      A partir do 2º ano
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowSubscriptionModal(true)}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-600 hover:from-emerald-600 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>
+                    {subEval.status === 'trial'
+                      ? 'Garantir Anuidade Antecipada via Mercado Pago'
+                      : subEval.status === 'active'
+                      ? 'Ver Detalhes do Plano & Pagamento'
+                      : 'Efetuar Pagamento via Mercado Pago (PIX / Cartão)'}
+                  </span>
+                </button>
+              </div>
             </div>
           );
         })()}
@@ -5721,6 +5860,44 @@ export default function ProfileDetails() {
                 })()}
               </div>
 
+              {/* Acionar Alerta de Emergência informando que está com este usuário */}
+              {!isOwnProfile && profile && (
+                <div className="mx-6 mb-3 p-3.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0">
+                      <ShieldAlert className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-red-900 dark:text-red-300 uppercase tracking-tight">
+                        Alerta de Emergência no Encontro
+                      </h4>
+                      <p className="text-[10.5px] text-red-700 dark:text-red-400 font-medium">
+                        Precisa de socorro? Acione o alerta no WhatsApp informando que está acompanhado(a) de <strong>{profile?.nome || 'este usuário'}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSafetyTipsModalOpen(false);
+                      window.dispatchEvent(new CustomEvent('open_sos_with_companion', {
+                        detail: {
+                          id: id || '',
+                          nome: profile?.nome || 'Contato do App',
+                          apelido: profile?.apelido || '',
+                          telefone: profile?.telefone || '',
+                          fotoUrl: profile?.fotoPrincipalUrl || '',
+                          idade: profile?.idade || ''
+                        }
+                      }));
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-md transition-all shrink-0 cursor-pointer text-center"
+                  >
+                    Acionar SOS com {profile?.nome ? profile.nome.split(' ')[0] : 'este Usuário'}
+                  </button>
+                </div>
+              )}
+
               {/* Progress Summary Footer */}
               <div className="p-5 border-t border-slate-100 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-950/40 flex items-center justify-between gap-4 shrink-0">
                 <div className="text-left">
@@ -5749,6 +5926,22 @@ export default function ProfileDetails() {
 
 
       </AnimatePresence>
+
+      {/* Mercado Pago Subscription Paywall Modal */}
+      {isOwnProfile && profile && currentUser && (
+        <SubscriptionPaywallModal
+          isOpen={showSubscriptionModal}
+          evaluation={evaluateUserSubscription(profile, currentUser.email)}
+          userId={currentUser.uid}
+          userEmail={currentUser.email || ''}
+          userName={profile.nome || currentUser.displayName || 'Usuário'}
+          userSexo={profile.sexo || ''}
+          onClose={() => setShowSubscriptionModal(false)}
+          onPaymentSuccess={() => {
+            setShowSubscriptionModal(false);
+          }}
+        />
+      )}
 
     </div>
   );

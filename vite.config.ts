@@ -11,19 +11,25 @@ export default defineConfig(() => {
       tailwindcss(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['favicon-32x32.png', 'apple-touch-icon.png', 'icon.svg'],
+        includeAssets: ['favicon-32x32.png', 'favicon.ico', 'apple-touch-icon.png', 'nfriends.png', 'nfriends-1024.png', 'icon.svg'],
         manifest: {
           id: '/',
-          name: 'New Friends.br - Conexões Próximas',
-          short_name: 'New Friends.br',
+          name: 'www.novosamigos.com.br - Conexões Próximas',
+          short_name: 'novosamigos',
           description: 'App de relacionamentos por geolocalização que conecta pessoas fisicamente próximas em tempo real.',
           theme_color: '#0284c7',
-          background_color: '#ffffff',
+          background_color: '#0a3582',
           display: 'standalone',
           orientation: 'portrait',
           start_url: '/',
           scope: '/',
           icons: [
+            {
+              src: '/nfriends.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any'
+            },
             {
               src: '/pwa-192x192.png',
               sizes: '192x192',
@@ -41,12 +47,6 @@ export default defineConfig(() => {
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable'
-            },
-            {
-              src: '/icon.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
-              purpose: 'any'
             }
           ]
         },

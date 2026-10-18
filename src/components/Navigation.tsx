@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Home, MessageCircle, Users, Zap, Shield, Heart } from 'lucide-react';
+import { Home, MessageCircle, Users, Zap, Shield, Heart, Siren } from 'lucide-react';
 
 export default function Navigation() {
   const location = useLocation();
@@ -49,7 +49,8 @@ export default function Navigation() {
     };
   }, []);
 
-  const isAdmin = auth.currentUser?.email === 'ceo@newfriends.com' || auth.currentUser?.email === 'sac@wegbusiness.com' || auth.currentUser?.email === 'ceo@wegbusiness.com' || auth.currentUser?.email === 'wegbusinessandsolutions@gmail.com';
+  const currentEmail = auth.currentUser?.email?.toLowerCase().trim();
+  const isAdmin = currentEmail === 'ceo@wegbusiness.com' || currentEmail === 'wegbusinessandsolutions@gmail.com' || currentEmail === 'sac@wegbusiness.com' || currentEmail === 'ceo@newfriends.com';
 
   return (
     <nav className="absolute bottom-0 w-full bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-col z-50 shadow-[0_-4px_6px_-1px_rgb(0,0,0,0.05)]">
@@ -88,10 +89,28 @@ export default function Navigation() {
           </div>
         </Link>
 
-        {isAdmin && (
-          <Link to="/admin" className={`transition-colors flex flex-col items-center gap-1 ${location.pathname === '/admin' ? 'text-rose-600' : 'text-slate-400 dark:text-slate-500 hover:text-rose-500'}`}>
+        {isAdmin ? (
+          <Link 
+            id="tour-admin-crm"
+            to="/admin" 
+            title="Painel CRM Administrativo"
+            className={`transition-colors flex flex-col items-center gap-1 ${location.pathname === '/admin' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500 hover:text-indigo-500'}`}
+          >
             <Shield className="w-6 h-6" />
           </Link>
+        ) : (
+          <button
+            id="tour-sos"
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('trigger-emergency-alert'))}
+            title="Alerta de Emergência (SOS)"
+            className="transition-colors flex flex-col items-center gap-1 text-red-500 hover:text-red-600 dark:text-red-400 active:scale-95 cursor-pointer"
+          >
+            <div className="relative">
+              <Siren className="w-6 h-6 animate-pulse" />
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full ring-2 ring-white dark:ring-slate-900" />
+            </div>
+          </button>
         )}
       </div>
       <div className="bg-slate-50 dark:bg-slate-950 py-1 text-center w-full border-t border-slate-100 dark:border-slate-900">

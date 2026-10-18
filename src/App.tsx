@@ -26,10 +26,11 @@ const QuickMessages = lazy(() => import('./pages/QuickMessages'));
 const AdminCRM = lazy(() => import('./pages/AdminCRM'));
 const FlirtSwipe = lazy(() => import('./pages/FlirtSwipe'));
 const RecentActivities = lazy(() => import('./pages/RecentActivities'));
+const EmergencyAlertView = lazy(() => import('./pages/EmergencyAlertView'));
 
 import Header from './components/Header';
 import { generateUserRegistrationId } from './utils/userId';
-import { openNativeSms } from './utils/sms';
+import { openWhatsApp } from './utils/whatsapp';
 import Navigation from './components/Navigation';
 import { useTheme, applyTheme, Theme } from './lib/theme';
 import WalkthroughTour from './components/WalkthroughTour';
@@ -37,6 +38,9 @@ import ConnectionAnimation from './components/ConnectionAnimation';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import AppFaceLockScreen from './components/AppFaceLockScreen';
 import PWAInstallBanner from './components/PWAInstallBanner';
+import TrialStatusBanner from './components/TrialStatusBanner';
+import SubscriptionPaywallModal from './components/SubscriptionPaywallModal';
+import { evaluateUserSubscription } from './utils/subscription';
 
 export default function App() {
   const { theme, setTheme } = useTheme();
@@ -49,6 +53,10 @@ export default function App() {
   const [hasProfile, setHasProfile] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [showConnectionAnim, setShowConnectionAnim] = useState(false);
+  const [userDocData, setUserDocData] = useState<any>(null);
+  const [showPaywallModal, setShowPaywallModal] = useState(false);
+
+  const userSubscriptionEval = evaluateUserSubscription(userDocData, user?.email);
 
   // Traces refs for Firebase Performance Monitoring
   const discoverTraceRef = useRef<any>(null);
@@ -186,6 +194,7 @@ export default function App() {
         unsubscribeDoc = onSnapshot(userDocRef, async (snap) => {
           if (snap.exists()) {
             const data = snap.data();
+            setUserDocData({ id: snap.id, ...data });
             const nextHasProfile = true;
             const nextRole = data.role || null;
             const nextVerified = Boolean(
@@ -219,6 +228,7 @@ export default function App() {
               setFaceVerificationRequired(nextFaceRequired);
             }
           } else {
+            setUserDocData(null);
             const nextHasProfile = false;
             const nextRole = null;
             const nextVerified = false;
@@ -248,24 +258,25 @@ export default function App() {
             }
 
             // Automatic onboarding / initialization for admin emails
-            const isAdminEmail = u.email === 'ceo@newfriends.com' || u.email === 'sac@wegbusiness.com' || u.email === 'ceo@wegbusiness.com' || u.email === 'wegbusinessandsolutions@gmail.com';
+            const isAdminEmail = u.email === 'ceo@wegbusiness.com' || u.email === 'wegbusinessandsolutions@gmail.com' || u.email === 'sac@wegbusiness.com' || u.email === 'ceo@newfriends.com';
             if (isAdminEmail) {
               try {
                 const { setDoc } = await import('firebase/firestore');
-                const isAdminWeg = u.email === 'sac@wegbusiness.com' || u.email === 'ceo@wegbusiness.com' || u.email === 'wegbusinessandsolutions@gmail.com';
                 const adminRegId = generateUserRegistrationId();
                 await setDoc(doc(db, 'users', u.uid), { 
                   codigoUsuario: adminRegId,
                   idNumerico: adminRegId,
                   verified: true, 
                   role: 'Admin',
-                  nome: isAdminWeg ? 'Admin WEG' : 'CEO',
-                  apelido: isAdminWeg ? 'Admin' : 'CEO',
+                  nome: 'Administrador (Admin)',
+                  apelido: 'admin',
+                  telefone: '(62) 998160501',
                   profile: {
                     codigoUsuario: adminRegId,
                     idNumerico: adminRegId,
-                    nome: isAdminWeg ? 'Admin WEG' : 'CEO',
-                    apelido: isAdminWeg ? 'Admin' : 'CEO',
+                    nome: 'Administrador (Admin)',
+                    apelido: 'admin',
+                    telefone: '(62) 998160501',
                     idade: 35,
                     sexo: 'masculino',
                     bio: 'Painel Administrativo do App',
@@ -292,10 +303,13 @@ export default function App() {
 
             if (snap.exists()) {
               const data = snap.data();
+              setUserDocData({ id: snap.id, ...data });
               nextRole = data.role || null;
               nextVerified = data.verified || false;
               nextIsStandby = data.status?.ativo === false;
               nextFaceRequired = data.faceLoginEnabled === true && sessionStorage.getItem(`face_verified_${u.uid}`) !== 'true';
+            } else {
+              setUserDocData(null);
             }
 
             const last = lastProfileStateRef.current;
@@ -552,12 +566,12 @@ export default function App() {
               });
               console.log("[SOS Tracker Background] Location updated:", latitude, longitude);
 
-              // Check if we should send a location update SMS (every 3 minutes, skipping the first run)
-              const lastSmsSent = localStorage.getItem('sos_last_wa_sent');
+              // Check if we should send a location update via WhatsApp (every 3 minutes, skipping the first run)
+              const lastWaSent = localStorage.getItem('sos_last_wa_sent');
               const phone = localStorage.getItem('sos_contact_phone');
               const now = Date.now();
-              if (lastSmsSent && phone) {
-                const diff = now - parseInt(lastSmsSent, 10);
+              if (lastWaSent && phone) {
+                const diff = now - parseInt(lastWaSent, 10);
                 // Check if at least 2.5 minutes (150000ms) have passed
                 if (diff >= 150000) {
                   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -572,13 +586,13 @@ export default function App() {
 
                   const locationUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
 
-                  const formattedMessage = `🚨 [SOS ATUALIZAÇÃO] Minha localização agora: ${locationUrl} (${dateTimeStr}). Repasse à polícia (190)!`;
+                  const formattedMessage = `🚨 *[SOS ATUALIZAÇÃO]* Minha localização agora: ${locationUrl} (${dateTimeStr}). Repasse imediatamente à polícia (190)!`;
 
                   localStorage.setItem('sos_last_wa_sent', now.toString());
-                  openNativeSms(phone, formattedMessage);
-                  console.log("[SOS Tracker Background] Triggered SMS location update.");
+                  openWhatsApp(phone, formattedMessage);
+                  console.log("[SOS Tracker Background] Triggered WhatsApp location update.");
                 }
-              } else if (!lastSmsSent && phone) {
+              } else if (!lastWaSent && phone) {
                 localStorage.setItem('sos_last_wa_sent', now.toString());
               }
             } catch (err) {
@@ -654,6 +668,10 @@ export default function App() {
         handleDiscoverEnd={handleDiscoverEnd}
         handleChatsStart={handleChatsStart}
         handleChatsEnd={handleChatsEnd}
+        userDocData={userDocData}
+        userSubscriptionEval={userSubscriptionEval}
+        showPaywallModal={showPaywallModal}
+        setShowPaywallModal={setShowPaywallModal}
       />
     </HashRouter>
   );
@@ -688,6 +706,10 @@ interface AuthenticatedLayoutProps {
   setShowTour: (show: boolean) => void;
   showConnectionAnim: boolean;
   setShowConnectionAnim: (show: boolean) => void;
+  userDocData?: any;
+  userSubscriptionEval: any;
+  showPaywallModal: boolean;
+  setShowPaywallModal: (show: boolean) => void;
 }
 
 function AuthenticatedLayout({
@@ -704,7 +726,11 @@ function AuthenticatedLayout({
   showTour,
   setShowTour,
   showConnectionAnim,
-  setShowConnectionAnim
+  setShowConnectionAnim,
+  userDocData,
+  userSubscriptionEval,
+  showPaywallModal,
+  setShowPaywallModal
 }: AuthenticatedLayoutProps) {
   // 1. Unauthenticated state
   if (!user) {
@@ -820,6 +846,23 @@ function AuthenticatedLayout({
     );
   }
 
+  // 6.5 Subscription paywall block if 30-day trial expired and no active subscription
+  if (userSubscriptionEval?.isBlocked && !isAdmin) {
+    return (
+      <SubscriptionPaywallModal
+        isOpen={true}
+        evaluation={userSubscriptionEval}
+        userId={user.uid}
+        userEmail={user.email || ''}
+        userName={userDocData?.profile?.nome || userDocData?.nome || user.displayName || 'Usuário'}
+        userSexo={userDocData?.profile?.sexo || userDocData?.sexo || ''}
+        onPaymentSuccess={() => {
+          setShowPaywallModal(false);
+        }}
+      />
+    );
+  }
+
   // 7. Render fully authenticated layout & app shell with outlet
   return (
     <div id="app-container" className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-800 dark:text-slate-100 mx-auto max-w-md w-full relative shadow-2xl overflow-hidden border-x border-slate-200 dark:border-slate-800">
@@ -827,6 +870,12 @@ function AuthenticatedLayout({
         sessionStorage.removeItem('tour_current_step');
         setShowTour(true);
       }} />
+
+      {/* 30-Day Free Trial & Annual Subscription Banner */}
+      <TrialStatusBanner
+        evaluation={userSubscriptionEval}
+        onOpenUpgradeModal={() => setShowPaywallModal(true)}
+      />
       
       {/* Global Alert Banner */}
       {appConfig?.globalBannerText && (
@@ -846,6 +895,20 @@ function AuthenticatedLayout({
 
       {/* PWA In-App Install Suggestion Banner */}
       <PWAInstallBanner />
+
+      {/* Paywall & Payment Modal (Mercado Pago) */}
+      <SubscriptionPaywallModal
+        isOpen={showPaywallModal}
+        onClose={() => setShowPaywallModal(false)}
+        evaluation={userSubscriptionEval}
+        userId={user.uid}
+        userEmail={user.email || ''}
+        userName={userDocData?.profile?.nome || userDocData?.nome || user.displayName || 'Usuário'}
+        userSexo={userDocData?.profile?.sexo || userDocData?.sexo || ''}
+        onPaymentSuccess={() => {
+          setShowPaywallModal(false);
+        }}
+      />
 
       {/* Walkthrough Tour Overlay */}
       {showTour && <WalkthroughTour onClose={() => setShowTour(false)} />}
@@ -880,6 +943,10 @@ interface AnimatedRoutesProps {
   handleDiscoverEnd: () => void;
   handleChatsStart: () => void;
   handleChatsEnd: () => void;
+  userDocData?: any;
+  userSubscriptionEval: any;
+  showPaywallModal: boolean;
+  setShowPaywallModal: (show: boolean) => void;
 }
 
 function AnimatedRoutes({
@@ -900,7 +967,11 @@ function AnimatedRoutes({
   handleDiscoverStart,
   handleDiscoverEnd,
   handleChatsStart,
-  handleChatsEnd
+  handleChatsEnd,
+  userDocData,
+  userSubscriptionEval,
+  showPaywallModal,
+  setShowPaywallModal
 }: AnimatedRoutesProps) {
   const location = useLocation();
 
@@ -913,6 +984,10 @@ function AnimatedRoutes({
     }>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
+          {/* Public Standalone Emergency Alert View (accessible via WhatsApp links without login) */}
+          <Route path="/sos/:id" element={<EmergencyAlertView />} />
+          <Route path="/alerta-sos/:id" element={<EmergencyAlertView />} />
+
           <Route element={
             <AuthenticatedLayout
               user={user}
@@ -929,6 +1004,10 @@ function AnimatedRoutes({
               setShowTour={setShowTour}
               showConnectionAnim={showConnectionAnim}
               setShowConnectionAnim={setShowConnectionAnim}
+              userDocData={userDocData}
+              userSubscriptionEval={userSubscriptionEval}
+              showPaywallModal={showPaywallModal}
+              setShowPaywallModal={setShowPaywallModal}
             />
           }>
             <Route
@@ -953,9 +1032,13 @@ function AnimatedRoutes({
             <Route
               path="/admin"
               element={
-                <PageTransition>
-                  <AdminCRM />
-                </PageTransition>
+                isAdmin ? (
+                  <PageTransition>
+                    <AdminCRM />
+                  </PageTransition>
+                ) : (
+                  <Navigate to="/" replace />
+                )
               }
             />
             <Route

@@ -267,6 +267,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
           banido: false,
           verificadoIdade: true, // simplified for MVP
         },
+        role: (auth.currentUser.email === 'ceo@wegbusiness.com' || auth.currentUser.email === 'wegbusinessandsolutions@gmail.com') ? 'Admin' : 'Usuário',
         createdAt: serverTimestamp(),
       };
       
